@@ -1,0 +1,111 @@
+package token;
+
+import java.util.ArrayList;
+class ParseError extends Exception{		// throw error
+	public ParseError(String s) {
+		super(s);
+	}
+}
+class Parse {
+	private ArrayList<String> strList = null;
+	private ArrayList<Token> tokenList = null;
+	private int tokenNum ;
+	public Parse(ArrayList<Token> list) {
+		tokenList = list;
+		tokenNum = 0;
+		strList = new ArrayList<String>();
+	}
+	public String emptySpace(int i) {
+		String str = "";
+		for (int j = 0; j < i; ++j) {
+			str = str + "  ";
+		}
+		return str;
+	}
+	public void varName(int depth) throws ParseError {
+		String space = emptySpace(depth);
+		Token token = tokenList.get(tokenNum);
+		++tokenNum;
+		if (token.type == Type.identifier) {
+			strList.add(space + "<identifier> "+token.word+" </identifier>\n");
+		}
+		else {
+			throw new ParseError(token.word + " is not identifier");
+		}
+	}
+	public void statements(int depth) throws ParseError {
+		while (tokenNum < tokenList.size()) {
+			statement(depth);
+		}
+	}
+	public void statement(int depth) throws ParseError {
+		String space = emptySpace(depth);
+		strList.add(space + "<statements>\n");
+		Token token = tokenList.get(tokenNum);
+		++tokenNum;
+		String word = token.word;
+		switch (word) {
+		case "let":letStatement(depth+1);break;
+		case "if":ifStatement(depth+1);break;
+		case "while":whileStatement(depth+1);break;
+		case "do":doStatement(depth+1);break;
+		case "return":returnStatement(depth+1);break;
+		default: throw new ParseError(word + " is no what statement need");
+		}
+		strList.add(space + "</statements>\n");
+	}
+	public void letStatement(int depth) throws ParseError {
+		String space = emptySpace(depth);
+		strList.add(space + "<letStatement>\n");
+		Token token = tokenList.get(tokenNum);
+		++tokenNum;
+		String word = token.word;
+		strList.add(space + "  <keyword> let </keyword>\n");
+		
+		strList.add(space + "  <varName>\n");
+		varName(depth+1);
+		strList.add(space + "  </varName>\n");
+		
+		token = tokenList.get(tokenNum);
+		if (token.word == "[") {
+			++tokenNum;
+			strList.add();
+			expression()
+		}
+		
+		strList.add(space + "</letStatement>\n");
+	}
+	public void ifStatement(int depth) {
+		
+	}
+	public void whileStatement(int depth) {
+		
+	}
+	public void doStatement(int depth) {
+		
+	}
+	public void returnStatement(int depth) {
+		
+	}
+	public void expression(int depth) {
+		
+	}
+	public void term(int depth) {
+		
+	}
+	public void subroutineCall(int depth) {
+		
+	}
+	public void expressionList(int depth) {
+		
+	}
+	public void op(int depth) {
+		
+	}
+	public void UnaryOp(int depth) {
+		
+	}
+	public void KeywordConstant(int depth) {
+		
+	}
+}

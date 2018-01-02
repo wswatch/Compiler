@@ -1,0 +1,51 @@
+import java.util.ArrayList;
+
+enum Type{
+	ARITHMETIC,
+	PUSH,
+	POP,
+	LABEL,
+	GOTO,
+	IF,
+	FUNCTION,
+	RETURN,
+	CALL,
+}
+class Order{
+	public Type func;
+	public Type arg1;
+	public Type arg2;
+};
+class Parse {
+	public Parse(){
+		
+	}
+	Order get_Order(String line) {
+		String no_Cline= delete_comment(line);		// a line without comment
+		Order order = new Order();
+		return order;
+	} 
+	String delete_comment(String str){  // delete the contents after //
+	    boolean before_slash = false;  // record if s[i-1] is a slash
+	    boolean has_comment = false;
+	    int comment_start_place = 0;    // record the start place of the comment
+	    int n = str.length();
+	    for(int i = 0; i < n && !has_comment; ++i){
+	        if(str.charAt(i) == '/'){
+	            if(before_slash){
+	                has_comment = true;
+	                comment_start_place = i-1;
+	            }
+	            else
+	                before_slash = true;
+	        }
+	        else{
+	            before_slash = false;
+	        }
+	    }
+	    if(has_comment){    //delete str from comment_start_place
+	        str=str.substring(0,n-comment_start_place);
+	    }
+	    return str;
+	}
+}

@@ -1,0 +1,8 @@
+import java.io.File;
+
+public class VM_part1 {
+	public static void main(String[] args) {
+		String str = "   dsak   dskaj dsa";
+		System.out.println(str.split(" "));
+	}
+}

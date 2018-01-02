@@ -1,0 +1,724 @@
+import java.util.ArrayList;
+import java.util.Hashtable;
+class ParseError extends Exception{		// throw error
+	public ParseError(String s) {
+		super(s);
+	}
+}
+enum Type{
+	ADD,			// arithmetic part
+	SUB,
+	NEG,
+	EQ,
+	GT,
+	LT,
+	AND,
+	OR,
+	NOT,
+	PUSH,	// memory part
+	POP,
+	LABEL,
+	GOTO,
+	IF,
+	FUNCTION,
+	RETURN,
+	CALL,
+	NULL,
+	Error,
+}
+enum ARG1{
+	CONSTANT,LOCAL,STATIC,THIS,THAT,POINTER,ARGUMENT,TEMP,NULL,LABEL
+}
+class Order{
+	public Type func;
+	public ARG1 arg1;
+	public int arg2;
+	public String label;
+	public Order() {
+		label = "";
+		func = Type.NULL;
+		arg1 = ARG1.NULL;
+		arg2 = -2;		// in hack, the direct number is bigger than -2
+	}
+};
+class Parse {
+	private ArrayList<String> content = null;
+	private String filename;
+	private Push push = null;
+	private Pop pop = null;
+	private Function f = null;
+	private Hashtable<String,Type> funcTable;
+	private Hashtable<String,ARG1> arg1Table;
+	private String funcname = "";
+	public String startCode(boolean ForD) {
+		String txt = null;
+		if (ForD) {		// if it is a directory
+			Order order = new Order();		// order call Sys.init 0
+			order.label = "Sys.init";		
+			order.arg1 = ARG1.LABEL;
+			order.arg2 = 0;
+			txt = "@256\n"			// SP=256
+				+ "D=A\n"
+				+ "@SP\n"
+				+ "M=D\n"
+				
+				+ f.call_main(order);	// call Sys.init
+		}
+		else {
+			txt = "";
+		}
+		return txt;
+	}
+	public Parse() {			// initial
+		filename = "";
+		funcname = "";
+		push = new Push();
+		pop = new Pop();
+		f = new Function();
+		buildOrderTable();
+		content = new ArrayList<String>();
+	}
+	public void reset(ArrayList<String> text,String name) throws ParseError{
+		filename = name;
+		funcname = "";
+		content = new ArrayList<String>();
+		for (int i = 0; i < text.size(); ++i) {
+//			System.out.println(text.get(i));
+			try { 
+			String NonCommentLine = delete_comment(text.get(i));
+			Order order = get_Order(NonCommentLine,i+1);
+			String part = translate(order,i);
+			if( part.length() > 0) {
+				content.add(part);
+			}
+			}
+			catch(ParseError e) {
+				int lineNum = i + 1;
+				throw new ParseError("Line "+lineNum+" "+text.get(i)+"\n"+e.getMessage());
+			}
+		}
+	}
+	public ArrayList<String> getContent() {
+		return content;
+	};
+	public String getLabel(String label) {
+		return funcname+'$'+label;
+	}
+	public String add_sub_and_or(Type kind) {	// finish add and sub
+		String txt = "@SP\n"
+				    +"AM=M-1\n"
+				    +"D=M\n"
+				    +"A=A-1\n";
+		switch(kind) {
+		case ADD:{
+			 txt=txt+"M=M+D\n";
+		};break;
+		case SUB:{
+			 txt=txt+"M=M-D\n";
+		};break;
+		case AND:{
+			 txt=txt+"M=M&D\n";
+		};break;
+		case OR:{
+			 txt=txt+"M=M|D\n";
+		};break;
+		default:
+			 txt=txt+"ERROR\n";break;
+		}
+		return txt;
+	}
+	public String neg_not(Type kind) {
+		String txt = "@SP\n"
+				    +"A=M-1\n";
+		if(kind == Type.NEG)
+			 txt=txt+"M=-M\n";
+		else
+			 txt=txt+"M=!M\n";
+		return txt;
+	}
+	public String eq_gt_lt(Type kind,int place) {	// use line number to CONTINUE,FALSE in 
+		String txt = "@SP\n"				// the different gt,eq or lt
+					+"AM=M-1\n"
+				    +"D=M\n"
+					+"A=A-1\n"
+					+"D=M-D\n"
+					+"@FALSE"+ place+"\n";
+		switch(kind) {
+		case GT:{
+			 txt=txt+"D;JLE\n";
+		};break;
+		case LT:{
+			 txt=txt+"D;JGE\n";
+		};break;
+		default:{		// eq
+			 txt=txt+"D;JNE\n";
+		}
+		}
+			 txt=txt	+"@SP\n"
+					+"A=M-1\n"
+					+"M=-1\n"
+					+"@CONTINUE"+place+"\n"
+					+"0;JMP\n"
+					+"(FALSE"+place+")\n"
+					+"@SP\n"
+					+"A=M-1\n"
+					+"M=0\n"
+					+"(CONTINUE"+place+")\n";
+	return txt;
+	}
+	public boolean isLabel(String name) {	// judge if a string is a label
+		boolean res = true;
+		char ch;
+		for (int i = 0; i < name.length() && res; ++i) {
+			ch = name.charAt(i);
+			if( (!Character.isLetterOrDigit(ch)) && ch != '_' && ch != '.' && ch != ':') {
+				res = false;
+			}
+		}
+		if(res) {
+			if (Character.isDigit(name.charAt(0)))
+				res = false;
+		}
+		return res;
+	}
+	public String label(String name,ARG1 kind) throws ParseError {
+		String txt = "";
+		if (kind == ARG1.LABEL) {
+			txt = "("+getLabel(name)+")";	// get name
+		}
+		else {
+			throw new ParseError(name + " is not a reasonable label");
+		}
+		return txt;
+	}
+	public String jump(String name, ARG1 kind) throws ParseError{
+		String txt = "";
+		if (kind == ARG1.LABEL) {
+			txt = "@"+getLabel(name)+"\n"	// get name
+			    + "0;JMP\n";
+		}
+		else {
+			throw new ParseError(name + " is not a reasonable label");
+		}
+		return txt;
+	}
+	public String if_jump(String name, ARG1 kind) throws ParseError{
+		String txt = "";
+		if (kind == ARG1.LABEL) {
+			txt = "@SP\n"
+				+ "AM=M-1\n"
+				+ "M;JGT\n"			// if it is not possible, add D=M
+			    + "@"+getLabel(name)+"\n"	// get name
+			    + "0;JMP\n";
+		}
+		else {
+			throw new ParseError(name + " is not a reasonable label");
+		}
+		return txt;
+	}
+	
+	public String translate(Order order,int lineNum) throws ParseError {
+		String asm = null;
+		switch(order.func) {
+		case NULL:{ asm = "";};break;
+		case ADD:
+		case SUB:
+		case AND:
+		case OR:{
+			asm = add_sub_and_or(order.func);
+			if (order.arg1 != ARG1.NULL || order.arg2 != -2) {
+				switch(order.func) {
+				case ADD:throw new ParseError("Add should be the only part in it");
+				case SUB:throw new ParseError("Sub should be the only part in it");
+				case AND:throw new ParseError("And should be the only part in it");
+				default :throw new ParseError("OR should be the only part in it");
+				//OR
+				}
+			}
+		};break;	
+		case NEG:
+		case NOT:{
+			asm = neg_not(order.func);
+			if (order.arg1 != ARG1.NULL || order.arg2 != -2) {
+				if (order.func == Type.NEG)
+					throw new ParseError("Neg should be the only part in it");
+				else
+					throw new ParseError("Not should be the only part in it");
+			}
+		};break;
+		case EQ:
+		case GT:
+		case LT:{
+			asm = eq_gt_lt(order.func,lineNum);
+			if(order.arg1 != ARG1.NULL || order.arg2 != -2) {
+				switch(order.func) {
+				case EQ:throw new ParseError("Eq should be the only part in it");
+				case GT:throw new ParseError("Gt should be the only part in it");
+				default:throw new ParseError("Lt should be the only part in it");
+				}
+			}
+		};break;
+		case PUSH:{	// memory part
+			asm=push.push(order,filename);
+		};break;
+		case POP:{
+			asm=pop.pop(order, filename);
+		};break;
+		case FUNCTION:{
+			asm=f.function(order);
+			funcname = order.label;		// if order is right, then label is the name of a new function
+		};break;
+		case CALL:{
+			asm=f.call(order);
+		};break;
+		case RETURN:{
+			asm=f.return_func(order);
+		};break;
+		default:{
+			throw new ParseError("func part is not reasonable");
+		}
+		}
+		return asm;
+	}
+	public Type get_func(String func)throws ParseError{
+		Type kind;
+		if(funcTable.containsKey(func)) {
+			kind = funcTable.get(func);
+		}
+		else {
+			throw new ParseError(func + " is not a reasonable func part!");
+		}
+		return kind;
+	}
+	
+	public ARG1 get_arg1(String arg){
+		ARG1 kind;
+		// arthemic part
+		if (arg1Table.containsKey(arg)) {
+			kind = arg1Table.get(arg);
+		}
+		else {
+			kind = ARG1.LABEL;
+		}
+		return kind;
+	}
+	
+	public int get_arg2(String arg) throws ParseError {
+		int num = 0;
+		try {
+			if (arg.length() == 0) {
+				num = -2;
+			}
+			else {
+				num = Integer.parseInt(arg);
+				if (num < 0) {
+					throw new ParseError(arg+"must be a positive Integer");
+				}
+			}
+			return num;
+		}
+		catch(NumberFormatException e){
+			throw new ParseError(arg+" is not a reasonable integer!");
+		}
+	}
+	public void buildOrderTable() {
+		funcTable = new Hashtable<String,Type>();
+		funcTable.put("", Type.NULL);
+		funcTable.put("add", Type.ADD);
+		funcTable.put("sub", Type.SUB);
+		funcTable.put("neg", Type.NEG);
+		funcTable.put("eq", Type.EQ);
+		funcTable.put("gt", Type.GT);
+		funcTable.put("lt", Type.LT);
+		funcTable.put("and", Type.AND);
+		funcTable.put("or", Type.OR);
+		funcTable.put("not", Type.NOT);
+		// memory part
+		funcTable.put("push", Type.PUSH);
+		funcTable.put("pop", Type.POP);
+		// goto, label, if-goto
+		funcTable.put("label",Type.LABEL);
+		funcTable.put("goto", Type.GOTO);
+		funcTable.put("if-goto", Type.IF);
+		// function, return,call
+		funcTable.put("function", Type.FUNCTION);
+		funcTable.put("call", Type.CALL);
+		funcTable.put("return", Type.RETURN);
+		
+		// arg1
+		arg1Table = new Hashtable<String,ARG1>();
+		arg1Table.put("", ARG1.NULL);
+		arg1Table.put("static", ARG1.STATIC);
+		arg1Table.put("constant", ARG1.CONSTANT);
+		arg1Table.put("local", ARG1.LOCAL);
+		arg1Table.put("argument",ARG1.ARGUMENT);
+		arg1Table.put("this",ARG1.THIS);
+		arg1Table.put("that",ARG1.THAT);
+		arg1Table.put("pointer",ARG1.POINTER);
+		arg1Table.put("temp", ARG1.TEMP);
+	}
+	public Order get_Order(String line,int lineNum) throws ParseError {
+		String no_Cline= delete_comment(line);		// a line without comment
+		Order order = new Order();
+		int n = no_Cline.length();
+		int i = 0;
+		int startpoint = 0;
+		while(i < n && Character.isWhitespace(no_Cline.charAt(i))) {		// delete Whitespace part
+			++i;
+		}
+		startpoint = i;
+		String part = null;		// use to get unwhiteSpace part 
+		while(i<n && Character.isWhitespace(no_Cline.charAt(i)) == false) {	
+			++i;
+		}
+		part = no_Cline.substring(startpoint,i);
+		// get func
+//		System.out.println(part);
+		order.func=get_func(part);
+		
+		while(i < n && Character.isWhitespace(no_Cline.charAt(i))) {
+			++i;
+		}
+		startpoint = i;
+		while(i<n && Character.isWhitespace(no_Cline.charAt(i)) == false) {
+			++i;
+		}
+		part = no_Cline.substring(startpoint,i);
+		// get arg1
+//		System.out.println(part);
+		order.arg1 = get_arg1(part);
+		// get the arg1 as label
+		order.label = part;
+		while(i < n && Character.isWhitespace(no_Cline.charAt(i))) {
+			++i;
+		}
+		startpoint = i;
+		while(i<n && Character.isWhitespace(no_Cline.charAt(i)) == false) {
+			++i;
+		}
+		part = no_Cline.substring(startpoint,i);
+		// get_arg2
+//		System.out.println(part);
+		order.arg2 = get_arg2(part);
+		// judge if it has the forth string
+		while(i<n && Character.isWhitespace(no_Cline.charAt(i)) == true) {
+			++i;
+		}
+		System.out.println(line);
+		if (i < n){			// when elements have more than 3
+//			System.out.println(order.func);
+//			System.out.println(order.arg1);
+//			System.out.println(order.arg2);
+			throw new ParseError("The line contains more than 3 parts!");
+		}
+		return order;
+	} 
+	public String delete_comment(String str){  // delete the contents after //
+	    boolean before_slash = false;  // record if s[i-1] is a slash
+	    boolean has_comment = false;
+	    int comment_start_place = 0;    // record the start place of the comment
+	    int n = str.length();
+	    for(int i = 0; i < n && !has_comment; ++i){
+	        if(str.charAt(i) == '/'){
+	            if(before_slash){
+	                has_comment = true;
+	                comment_start_place = i-1;
+	            }
+	            else
+	                before_slash = true;
+	        }
+	        else{
+	            before_slash = false;
+	        }
+	    }
+	    if(has_comment){    //delete str from comment_start_place
+	        str=str.substring(0,comment_start_place);
+	    }
+	    return str;
+	}
+}
+class Push {
+	public String constant(int arg2) {		// constant
+		String txt = "@"+arg2+"\n"
+				   + "D=A\n";
+		return txt;
+	}
+	public String stat(int arg2,String name) {		// static
+		String txt = "@"+name+"."+arg2+"\n"
+				   + "D=M\n";
+		return txt;
+	}
+	public String local_argument_this_that(int arg2,ARG1 kind) {
+		String txt = null;
+		switch(kind) {
+		case LOCAL:txt = "@LCL\n";break;
+		case ARGUMENT:txt = "@ARG\n";break;
+		case THIS:txt = "@THIS\n";break;
+		default:txt = "@THAT\n";break;
+		}
+		txt= txt	+ "D=M\n"
+				+ "@"+arg2+"\n"
+				+ "A=D+A\n"
+				+ "D=M\n";
+		return txt;
+	}
+	public String temp(int arg2) throws ParseError{
+		if (arg2 > 7) {		// out of range
+			throw new ParseError("temp's range must be 0-7");
+		}
+		else {
+			String txt = "@5\n"
+					   + "D=A\n"
+					   + "@"+arg2+"\n"
+					   + "A=D+A\n"
+					   + "D=M\n";
+			return txt;
+		}
+	}
+	public String pointer(int arg2) throws ParseError{
+		String txt = null;
+		if(arg2 == 0) {
+			txt = "@THIS\n";
+		}
+		else if(arg2 == 1){
+			txt = "@THAT\n";
+		}
+		else {
+			throw new ParseError("pointer's can only be 0 or 1");
+		}
+		txt = txt+"D=M\n";
+		return txt;
+	}
+	// get the string of push
+	public String push(Order order,String name) throws ParseError{
+		String head = null;
+		switch(order.arg1) {
+		case CONSTANT: head = constant(order.arg2);break;
+		case STATIC: head = stat(order.arg2,name);break;
+		case POINTER: head = pointer(order.arg2);break;
+		case TEMP:head = temp(order.arg2);break;
+		default:head = local_argument_this_that(order.arg2,order.arg1);
+		}
+		String tail = "@SP\n"
+					+ "A=M\n"
+					+ "M=D\n"
+					+ "@SP\n"
+					+ "M=M+1\n";
+		return head+tail;
+	}
+}
+
+class Pop {
+	public String constant(int arg2) throws ParseError{		// constant
+		throw new ParseError("Can not pop information to a constant number");
+	}
+	public String stat(int arg2,String name) {		// static
+		String txt = "@SP\n"
+				   + "AM=M-1\n"
+				   + "D=M\n"
+			       + "@"+name+"."+arg2+"\n"
+				   + "M=D\n";
+		return txt;
+	}
+	public String local_argument_this_that(int arg2,ARG1 kind) {
+		String txt = null;
+		switch(kind) {
+		case LOCAL:txt = "@LCL\n";break;
+		case ARGUMENT:txt = "@ARG\n";break;
+		case THIS:txt = "@THIS\n";break;
+		default:txt = "@THAT\n";break;
+		}
+		txt= txt	+ "D=M\n"
+				+ "@"+arg2+"\n"
+				+ "D=D+A\n"
+				+ "@R13\n"
+				+ "M=D\n"
+				+ "@SP\n"
+				+ "AM=M-1\n"
+				+ "D=M\n"
+				+ "@R13\n"
+				+ "A=M\n"
+				+ "M=D\n";
+		return txt;
+	}
+	public String temp(int arg2) throws ParseError{
+		if (arg2 > 7) {		// out of range
+			throw new ParseError("temp's range must be 0-7");
+		}
+		else {
+			String txt = "@5\n"
+					   + "D=A\n"
+					   + "@"+arg2+"\n"
+					   + "D=D+A\n"
+			     	   + "@R13\n"
+					   + "M=D\n"
+					   + "@SP\n"
+					   + "AM=M-1\n"
+					   + "D=M\n"
+					   + "@R13\n"
+					   + "A=M\n"
+					   + "M=D\n";
+			return txt;
+		}
+	}
+	public String pointer(int arg2) throws ParseError{
+		String txt =    "@SP\n"
+					  + "AM=M-1\n"
+					  + "D=M\n";
+		if(arg2 == 0) {
+			txt = txt + "@THIS\n";
+		}
+		else if(arg2 == 1){
+			txt = txt + "@THAT\n";
+		}
+		else {
+			throw new ParseError("pointer's can only be 0 or 1");
+		}
+		txt = txt+"M=D\n";
+		
+		return txt;
+	}
+	// get the string of pop
+	public String pop(Order order,String name) throws ParseError{
+		String txt = null;
+		switch(order.arg1) {
+		case CONSTANT: txt = constant(order.arg2);break;
+		case STATIC: txt = stat(order.arg2,name);break;
+		case POINTER: txt = pointer(order.arg2);break;
+		case TEMP:txt = temp(order.arg2);break;
+		case LOCAL:
+		case ARGUMENT:
+		case THIS:
+		case THAT: txt = local_argument_this_that(order.arg2,order.arg1);
+		default: throw new ParseError(order.label + " is not a reasonable arg1 for pop");
+		}
+		return txt;
+	}
+}
+class Function {
+	public String push(String Kind) {
+		String txt = "@"+Kind+"\n"
+				   + "D=M\n"
+				   + "@SP\n"
+				   + "M=D\n"
+				   + "@SP\n"
+				   + "M=M+1\n";
+		return txt;
+	}
+	public String call(Order order) throws ParseError {		// call 
+		String txt = null;
+		if (order.arg1 != ARG1.LABEL) {
+			throw new ParseError(order.label+" is not a reasonable name for function");
+		}
+		else if (order.arg2 < 0 ) {
+			throw new ParseError("The number of argument in a function must be positive, but "+order.arg2+" is negative");
+		}
+		else {
+			txt = call_main(order);
+		}
+		return txt;
+	}
+	public String call_main(Order order) {
+		String return_sign = order.label+"_return";
+		int arg_value = order.arg2+5;		// n+5
+		String txt = "@"+return_sign+"\n"		// push return-address
+				   + "D=A\n"
+				   + "@SP\n"
+				   + "M=D\n"
+				   + "@SP\n"
+				   + "M=M+1"
+				   
+				   + push("LCL")
+				   + push("ARG")
+				   + push("THIS")
+				   + push("THAT")
+				   
+				   + "@SP\n"			// ARG=SP-n-5
+				   + "D=M\n"
+				   + "@"+arg_value+"\n"
+				   + "D=D-A\n"
+				   + "@ARG\n"
+				   + "M=D\n"
+				   
+				   + "@SP\n"			// LCL=SP
+				   + "@D=M\n"
+				   + "@LCL\n"
+				   + "M=D\n"
+				   
+				   + "@"+order.label+"\n"	// goto f
+				   + "0;JMP\n"
+				   
+				   + "("+return_sign+")\n";	// (return-address)
+	return txt;			
+	}
+	public String function(Order order) throws ParseError {
+		if(order.arg1 != ARG1.LABEL) {
+			throw new ParseError(order.label+" is not a reasonable function name.");
+		}
+		if(order.arg2 < 0) {
+			throw new ParseError(order.arg2 + " is not a positive number, while function's label number could not be negative");
+		}
+		String txt = function_main(order);
+		return txt;
+	}
+	public String function_main(Order order) {
+		String txt = null;
+		txt = "("+order.label+")\n";
+		for(int i = 0; i < order.arg2; ++i) {		
+			txt = txt + "@SP\n"			// push constant 0
+					  + "A=M\n"
+					  + "M=0\n"
+					  + "@SP"
+					  + "M=M+1\n";
+		}
+		return txt;
+	}
+	public String pop(String Kind) {		// pop the element to Kind
+		String txt = null;
+		txt = "@SP\n"
+			+ "AM=M-1\n"
+			+ "D=M\n"
+			+ "@"+Kind+"\n"
+			+ "M=D\n";
+		return txt;
+	}
+	public String return_func(Order order) throws ParseError {
+		if (order.arg1 != ARG1.NULL) {
+			throw new ParseError("return has no arg1");
+		}
+		if (order.arg2 != -2) {
+			throw new ParseError("return has no arg2");
+		}
+		String txt = return_main();
+		return txt;
+	}
+	public String return_main() {
+		String txt = null;
+			txt = "@LCL\n"	// SP = LCL, get the place where call f n is
+				+ "D=M\n"
+				+ "@SP\n"
+				+ "M=D\n"
+				
+				+ pop("THAT")
+			    + pop("THIS")
+			
+				+ "@ARG\n"			// store ARG into
+				+ "A=M+1\n"
+				+ "D=M\n"
+				+ "@R13\n"
+				+ "M=D\n"
+			    
+				+ pop("ARG")
+				+ pop("LCL")
+				+ pop("R14")		// use R14 to store RET
+				
+				+ "@R13\n"	// SP = origin(ARG)+1
+				+ "D=M+1\n"
+				+ "@SP\n"
+				+ "M=D\n"
+				
+				+ "@R14\n"		// goto RET
+				+ "M;JMP\n";
+		return txt;
+	}
+}

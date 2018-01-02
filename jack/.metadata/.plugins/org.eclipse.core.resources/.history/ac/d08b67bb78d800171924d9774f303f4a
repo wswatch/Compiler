@@ -1,0 +1,221 @@
+import java.util.ArrayList;
+import java.util.Hashtable;
+
+class Jack {
+	Hashtable<String,symbolTable> table;
+	ArrayList<String> xmlList;
+	String className;
+	symbolTable funcTable;
+	ArrayList<String> vmList;
+	int listNum;
+	Jack(Hashtable<String,symbolTable> table) {
+		this.table = table;
+	}
+	void set(ArrayList<String> xml) {
+		xmlList = xml;
+		listNum = 0;
+		vmList = new ArrayList<String>();
+	}
+	String getType() {
+		XML xml = new XML(xmlList.get(listNum));
+		return xml.type;
+	}
+	String getNext() {				// get the next xml
+		XML xml = null;
+		String res = null;
+		if (listNum < xmlList.size()) {
+			xml = new XML(xmlList.get(listNum));
+			if (xml.content.length() == 0)
+				res = xml.type;
+			else
+				res = xml.content;
+			++listNum;
+		}
+		return res;
+	}
+	String topXML() {				// peek the top XML
+		XML xml = new XML(xmlList.get(listNum));
+		String res = null;
+		if (xml.content.length() == 0)
+			res = xml.type;
+		else
+			res = xml.content;
+		return res;
+	}
+	String address(String symbol) {
+		Element ele = funcTable.get(symbol);
+		String res;
+		if (ele == null) {
+			ele = table.get(className).get(symbol);
+			if (ele == null) {
+				res = null;
+			}
+			else if (ele.type.equals("local")) {
+				res = "this " + ele.num;
+			}
+			else 
+				res = ele.type + " " + ele.num;
+		}
+		else {
+			res = ele.type + " " + ele.num;
+		}
+		return res;
+	}
+	void run(){
+		String str;
+		getNext();		// <class>
+		getNext();		// class
+		className = getNext();
+		str = getNext();
+		while(str != null) {
+			if (str.equals("subroutineDec")) {
+				subroutineDec();
+			}
+			str = getNext();
+		}
+	}
+	void subroutineDec() {
+		listNum = listNum + 2;	// ignore type & return of a function
+		String funcName = className + "." + getNext();
+		funcTable = table.get(funcName);
+		// add the function line
+		vmList.add("function "+funcName + " " + funcTable.getLol());
+		while (getNext().equals("statements") == false) {}
+		// move to statements
+		String kind = getNext();
+		switch(kind) {
+		case "letStatement": letStatement();break;
+		case "ifStatement": ifStatement();break;
+		case "whileStatement": whileStatement();break;
+		case "doStatement": doStatement();break;
+		default: returnStatement();
+		}
+	}
+	void writeString(String txt) {
+		vmList.add("push constant "+txt.length() + "\n");
+		vmList.add("call String.new 1\n");
+		int t = 0;
+		for (int i = 0; i < txt.length(); ++i) {
+			t = txt.charAt(i);
+			vmList.add("push constant " + t + "\n");
+			vmList.add("call String.appendChar 2\n");
+		}
+	}
+	boolean writeKeyword(String txt) {
+		boolean res = true;
+		if (txt.equals("true")) {
+			vmList.add("push constant -1\n");
+			vmList.add("neg\n");
+		}
+		else if(txt.equals("false") || txt.equals("null")) {
+			vmList.add("push constant 0");
+		}
+		else if (txt.equals("this")) {
+			vmList.add("push pointer 0\n");
+		}
+		else 
+			res = false;
+		return res;
+	}
+	void array(String base) {
+		String ad = address(base);
+		vmList.add("push "+ad+"\n");
+		expression();
+		vmList.add("add\n");
+		vmList.add("pop pointer 1\n");
+		vmList.add("push that 0\n");
+	}
+	void term () {
+		++listNum;		// <term>
+		String type = getType();
+		String word = getNext();
+		if (type.equals("stringConstant")) {
+			writeString(word);
+		}
+		else if(type.equals("integerConstant")) {
+			vmList.add("push constant "+word+"\n");
+		}
+		else if(writeKeyword(word) == false) {	//if it is keyword, do it
+			if (word.equals("-")) {
+				term();
+				vmList.add("neg\n");
+			}
+			else if (word.equals("~")) {
+				term();
+				vmList.add("not\n");
+			}
+			else if (word.equals("(")) {
+				expression();
+				++listNum;   // )
+			}
+			else {			// identifier
+				String nextw = getNext();
+				if (nextw.equals("/term")) {
+					--listNum;
+				}
+				else if(nextw.equals("[")) {
+					array(word);
+					++listNum;	// ]
+				}
+				// subroutineCall
+				else if(nextw.equals(".")) {
+					String varName = address(word);
+					int n = 0;
+					if (varName == null) {
+						String func = word + "." + getNext();
+						++listNum;	// (
+						n = expressionList();
+						vmList.add("call "+ func + " "+n+"\n");
+						++listNum;	// )
+					}
+					else {
+						String func = className + "." + getNext();
+						++listNum;	// (
+						vmList.add("push "+varName+"\n");		// push this
+						n = expressionList() + 1;
+						++listNum;
+						vmList.add("call "+func+ " "+n+"\n");
+					}
+				}
+				// subroutineName (expressionList)
+				else {
+					int n = 0;
+					String func = className + "." + getNext();
+					symbolTable s = table.get(func);
+					if (s == null) {
+						// error handle
+					}
+					else {
+						// method
+						if (s.kind.equals("method")) {
+							vmList.add("push pointer 0\n");	// this
+							n = expressionList() + 1;
+							vmList.add("call" + func + " "+n+"\n");
+							++listNum;	// )
+						}
+						else {
+							n = expressionList();
+							++listNum;
+							vmList.add("call "+func+ " "+n+"\n");
+						}
+					}
+				}
+			}
+		}
+		
+	}
+	int expressionList() {
+		return 0;
+	}
+	void expression() {
+		term();		
+		
+	}
+	void letStatement() {
+		++listNum;		// let
+		String varName = getNext();		// varName
+		if (getNext().equals("[")) {		// array
+			expression();
+		}
+	}
+}

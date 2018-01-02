@@ -1,0 +1,30 @@
+package token;
+
+import java.util.ArrayList;
+
+public class Compiler {
+	public static void main(String[] args) {
+		try {
+			ArrayList<String> list = null;
+			if(args.length == 2) {
+				RW_File rwfile = new RW_File(args[1]);
+				list = rwfile.Read();
+				while(list != null) {
+					Tokenizer token = new Tokenizer(list);
+					list = token.getOut();
+					rwfile.Write(list);
+					rwfile.nextline();
+				}
+			}
+			else {
+				System.out.println("You can only input one file or directory at a time");
+			}
+		}
+		catch (FileException e) {
+			System.out.println(e.getMessage());
+		}
+		catch (TokenError e) {
+			System.out.println(e.getMessage());
+		}
+	}
+}

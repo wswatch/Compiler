@@ -1,0 +1,9 @@
+import java.io.File;
+
+public class VM_part1 {
+	public static void main(String[] args) {
+		File file = new File("home/happy/ws");
+		String fp = file.getParent();
+		System.out.println(fp);
+	}
+}

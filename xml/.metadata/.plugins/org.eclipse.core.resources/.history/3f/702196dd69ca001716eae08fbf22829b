@@ -1,0 +1,79 @@
+package token;
+
+import java.util.ArrayList;
+
+enum Type{
+	keyword,symbol,intergerConstant,stringConstant,identifier,not
+}
+
+class Comment {
+	private ArrayList<String> txt;
+	public void addContent(ArrayList<String> content) {
+		txt = content;
+	}
+
+	public ArrayList<String> deleteComment() {
+		String str;
+		ArrayList<String> noComment = new ArrayList<String>();
+		char ch;
+		boolean isInComment = false;
+		boolean isSlash = false;
+		boolean isStar = false;
+		boolean notStop = true;
+		String newTxt = null;
+		int validStart = 0;
+
+		for(int i = 0; i < txt.size(); ++i) {
+			str = txt.get(i);
+			newTxt = "";
+			notStop = true;
+			for(int j = 0; j < str.length() && notStop; ++j) {
+				ch = str.charAt(j);
+				if(isInComment) {		// find 
+					if(isStar) {
+						if(ch == '/') {
+							isInComment = false;
+							validStart = j+1;
+						}
+						else if(ch != '*')
+							isStar = false;
+					}
+					else if(ch == '*'){
+						isStar = true;
+					}
+				}
+				else {
+					if (isSlash) {
+						if (ch == '/') {
+							newTxt = newTxt + str.substring(validStart,j-1);
+							notStop = false;
+						}
+						else if(ch == '*') {
+							newTxt = newTxt + str.substring(validStart,j-1);
+							isInComment = true;
+						}
+						else
+							isSlash = false;	
+					}
+					else if (ch == '/') {
+						isSlash = true;
+					}
+				}
+			}
+			if(notStop && (isInComment == false)) {	// if it is not comment
+				newTxt = newTxt + str.substring(validStart);
+			}
+			if(newTxt.length() > 0) {		// add a new line
+				noComment.add(newTxt);
+			}
+		}
+		return noComment;
+	}
+}
+
+class Token {
+	public static void main(String[] args) {
+		String s = "123";
+		System.out.println(s.substring(3,1));
+	}
+}

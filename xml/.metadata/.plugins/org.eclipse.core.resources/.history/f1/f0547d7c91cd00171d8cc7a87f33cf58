@@ -1,0 +1,411 @@
+package token;
+
+import java.util.ArrayList;
+class ParseError extends Exception{		// throw error
+	public ParseError(String s) {
+		super(s);
+	}
+}
+
+class Parser {
+	private ArrayList<String> strList = null;
+	private ArrayList<Token> tokenList = null;
+	private int tokenNum;
+	public Parser(ArrayList<Token> list) {
+		tokenList = list;
+		tokenNum = 0;
+		strList = new ArrayList<String>();
+	}
+	public String stringToken(Token token) {
+		String part = "";
+		switch(token.type) {
+		case symbol: part = "<symbol> "+token.word+" </symbol>\n";break;
+		case keyword: part = "<keyword> "+token.word+" </keyword>\n";break;
+		case integerConstant: part = "<integerConstant> "+token.word+" </integerConstant>\n";break;
+		case stringConstant: part = "<stringConstant> "+token.word+" </stringConstant>\n";break;
+		default: part = "<identifier> "+token.word+" </identifier>\n";
+		}
+		return part;
+	}
+	public void add(Type kind, String space) throws ParseError {
+		if (tokenNum >= tokenList.size()) {
+			throw new ParseError("The file is not complete");
+		}
+		Token token = tokenList.get(tokenNum++);
+		if (token.type == kind) {
+			strList.add(space + stringToken(token));
+		}
+		else {
+			throw new ParseError("line "+ token.lineNum + ": " + token.word + " is not " + kind);
+		}
+	}	
+	public boolean compare(Type kind) {
+		if (tokenNum >= tokenList.size()) {
+			return false;
+		}
+		Token token = tokenList.get(tokenNum);
+		if (token.type == kind)
+			return true;
+		else 
+			return false;
+	}
+	public void add(String word, String space) throws ParseError {
+		if (tokenNum >= tokenList.size()) {
+			throw new ParseError("The file is not complete");
+		}
+		Token token = tokenList.get(tokenNum++);
+		if (token.word.equals(word)) {
+			strList.add(space + stringToken(token));
+		}
+		else {
+			throw new ParseError("line "+ token.lineNum + ": "+token.word + " is not " + word);
+		}
+	}
+	public boolean compare(String word) {
+		if (tokenNum >= tokenList.size()) {
+			return false;
+		}
+		Token token = tokenList.get(tokenNum);
+		if (token.word.equals(word))
+			return true;
+		else 
+			return false;
+	}
+	public void add(String space) {		// use after compare
+		Token token = tokenList.get(tokenNum++);
+		strList.add(space + stringToken(token));
+	}
+	public Token getToken() throws ParseError{
+		if (tokenNum >= tokenList.size()) {
+			throw new ParseError("The file is not complete");
+		}
+		Token token = tokenList.get(tokenNum++);
+		return token;
+	}
+	public void statements(String space) throws ParseError {
+		strList.add(space + "<statements>\n");
+		while (tokenNum < tokenList.size() && compare("}") == false) {
+			statement(space+"  ");
+		}
+		strList.add(space + "</statements>\n");
+	}
+	public void statement(String space) throws ParseError {
+		Token token = getToken();
+		String word = token.word;
+		switch (word) {
+		case "let":letStatement(space);break;
+		case "if":ifStatement(space);break;
+		case "while":whileStatement(space);break;
+		case "do":doStatement(space);break;
+		case "return":returnStatement(space);break;
+		default: throw new ParseError(word + " is no what statement need");
+		}
+	}
+	public void letStatement(String space) throws ParseError {
+		String nspace = space + "  ";
+		strList.add(space + "<letStatement>\n");
+
+		strList.add(space + "  <keyword> let </keyword>\n");
+		add(Type.identifier, nspace);
+		
+		if (compare("[")) {
+			add(nspace);
+			expression(nspace);
+			add("]",nspace);
+		}
+		add("=",nspace);
+		expression(nspace);
+		add(";",nspace);
+		
+		strList.add(space + "</letStatement>\n");
+	}
+	public void ifStatement(String space) throws ParseError {
+		String nspace = space + "  ";
+		strList.add(space + "<ifStatement>\n");
+		strList.add(space + "  <keyword> if </keyword>\n");
+		
+		// check (expression)
+		add("(",nspace);
+		expression(nspace);
+		add(")",nspace);
+		// check {statements}
+		add("{",nspace);
+		statements(nspace);
+		add("}",nspace);
+		
+		if(compare("else")) {		// else
+			add(nspace);
+			add("{",nspace);
+			statements(nspace);
+			add("}",nspace);
+		}
+		strList.add(space + "</ifStatement>\n");
+	}
+	public void whileStatement(String space) throws ParseError{
+		String nspace = space + "  ";
+		strList.add(space + "<whileStatement>\n");
+		
+		strList.add(space + "  <keyword> while </keyword>\n");
+		// check (expression)
+		add("(",nspace);
+		expression(nspace);
+		add(")",nspace);
+		// check {statements}
+		add("{",nspace);
+		statements(nspace);
+		add("}",nspace);
+		
+		strList.add(space + "</whileStatement>\n");
+	}
+	public void doStatement(String space) throws ParseError {
+		String nspace = space + "  ";
+		strList.add(space + "<doStatement>\n");
+		
+		strList.add(space + "  <keyword> do </keyword>\n");
+		subroutineCall(nspace);
+		add(";",nspace);
+		
+		strList.add(space + "<doStatement>\n");
+	}
+	public void returnStatement(String space) throws ParseError {
+		String nspace = space + "  ";
+		strList.add(space + "<returnStatement>\n");
+		strList.add(space + "  <keyword> return </keyword>\n");
+		if(compare(";") == false) {
+			expression(nspace);
+		}
+		add(";",space+"  ");
+		strList.add(space + "<returnStatement>\n");
+	}
+	public void expression(String space) throws ParseError{
+		String nspace = space + "  ";
+		strList.add(space + "<expression>\n");
+		term(nspace);
+		while (op()) {
+			add(nspace);
+			term(nspace);
+		}
+		strList.add(space + "</expression>\n");
+	}
+	public void term(String space) throws ParseError {
+		String nspace = space + "  ";
+		strList.add(space + "<term>\n");
+		
+		if(compare(Type.integerConstant)) {
+			add(nspace);
+		}
+		else if(compare(Type.stringConstant)) {
+			add(nspace);
+		}
+		// keywordConstant
+		else if(compare("true") || compare("false") || compare("null") || compare("this")) {
+			add(nspace);
+		}
+		// unary Op
+		else if(compare("-") || compare("~")) {
+			add(nspace);
+			term(nspace);
+		}
+		// (expression)
+		else if(compare("(")) {
+			add(nspace);
+			expression(nspace);
+			add(")",nspace);
+		}
+		else if (compare(Type.identifier)) {
+			getToken();		// move to the next token
+			if( compare(".") || compare("(")) {	// subroutineCall
+				tokenNum =  tokenNum - 1;
+				subroutineCall(nspace);
+			}
+			else if(compare("[")){//varName[expression]
+				--tokenNum;
+				add(nspace);		// varName
+				add(nspace);		// [
+				expression(nspace);
+				add("]",nspace);
+			}
+			else {		// varName
+				--tokenNum;
+				add(nspace);		// varName
+			}
+		}
+		else {
+			throw new ParseError(getToken().word+" is not a reasonable type as a term");
+		}
+		
+		strList.add(space + "</term>\n");
+	}
+	public void subroutineCall(String space) throws ParseError {
+		String nspace = space + "  ";
+		strList.add(space+ "<subroutineCall>\n");
+		add(Type.identifier,nspace);
+		if (compare(".")) {  // check (className|varName).subroutineName
+			add(nspace);		// .
+			add(Type.identifier,nspace);		// subroutineName	
+		}
+		add("(",nspace);
+		expressionList(nspace);
+		add(")",nspace);
+		strList.add(space+ "</subroutineCall>\n");
+	}
+	public void expressionList(String space) throws ParseError {
+		String nspace = space + "  ";
+		strList.add(space + "<expressionList>\n");
+		if(compare(")") ==  false) {		// if it has some expression
+			expression(nspace);			// the only way that use expressionList
+			while(compare(",")) {		// is (expressionList), so the next elememt is )
+				add(nspace);
+				expression(nspace);
+			}
+		}
+		strList.add(space + "</expressionList>\n");
+	}
+	public boolean op() {
+		if(tokenNum >= tokenList.size()) {
+			return false;
+		}
+		Token token = tokenList.get(tokenNum);
+		boolean res = true;
+		switch (token.word) {
+		case "+":
+		case "-":
+		case "*":
+		case "/":
+		case "&quot;":
+		case "|":
+		case "&lt;":
+		case "&gt;":
+		case "=":{
+			res = true;
+		};break;
+		default: {
+			res = false;
+		}
+		}
+		return res;
+	}
+	public void classStatement(String space) throws ParseError {
+		String nspace = space + "  ";
+		strList.add(space + "<class>\n");
+		
+		add("class",nspace);
+		add(Type.identifier,nspace);
+		add("{",nspace);
+		//classVarDec
+		while (compare("static") || compare("field")) {
+			classVarDec(nspace);
+		}
+		//subroutineDec
+		while(compare("constructor") || compare("function") || compare("method")) {
+			subroutineDec(nspace);
+		}
+		
+		strList.add(space + "</class>\n");
+	}
+	public void classVarDec(String space) throws ParseError {
+		String nspace = space + "  ";
+		strList.add(space + "<classVarDec>\n");
+		if (compare("static") || compare("field")) {
+			add(nspace);
+		}
+		else {
+			Token token = getToken();
+			throw new ParseError("line "+ token.lineNum + ": "+token.word + " is not static or field");
+		}
+		type(nspace);
+		add(Type.identifier,nspace);
+		while(compare(",")) {	//(,varName)*
+			add(nspace);
+			add(Type.identifier,nspace);		// varName
+		}
+		add(";",nspace);
+		strList.add(space + "</classVarDec>\n");
+	}
+	public void type(String space) throws ParseError {
+		Token token = getToken();
+		--tokenNum;
+		if (token.word.equals("int") || token.word.equals("char") || token.word.equals("boolean")) {
+			add(space);
+		}
+		else if(token.type == Type.identifier) {
+			add(space);
+		}
+		else {
+			throw new ParseError("line "+token.lineNum+": "+token.word + " is not fit with type");
+		}
+	}
+	public void subroutineDec(String space) throws ParseError {
+		strList.add(space + "<subroutineDec>\n");
+		String nspace = space + "  ";
+		if (compare("constructor") || compare("function") || compare("method")) {
+			add(nspace);
+		}
+		else {
+			Token token = getToken();
+			throw new ParseError("line "+ token.lineNum + ": "+token.word + " is not constructor, function or method");
+		}
+		
+		if(compare("void")) {		// (void| type)
+			add(nspace);
+		}
+		else {
+			type(nspace);
+		}
+		
+		add(Type.identifier,nspace);
+		add("(",nspace);
+		parameterList(nspace);
+		add(")",nspace);
+		subroutineBody(nspace);
+		strList.add(space + "</subroutineDec>\n");
+	}
+	public void parameterList(String space) throws ParseError {
+		String nspace = space + "  ";
+		strList.add(space + "<parameterList>\n");
+		
+		if (compare(")") == false) {		//  the only structure contain parameterList
+			type(nspace);       // is (parameterList), so the end must be )
+			add(Type.identifier,nspace);
+		}
+		while(compare(",")) {
+			add(nspace);
+			type(nspace);
+			add(Type.identifier,nspace);
+		}
+		strList.add(space + "</parameterList>\n");
+	}
+	public void subroutineBody(String space) throws ParseError {
+		String nspace = space + "  ";
+		strList.add(space + "<subroutineBody>\n");
+		add("{",nspace);
+		while(compare("var")) {
+			varDec(nspace);
+		}
+		statements(nspace);
+		add("}",nspace);
+		strList.add(space + "</subroutineBody>\n");
+	}
+	public void varDec(String space) throws ParseError{
+		String nspace = space + "  ";
+		strList.add(space + "<varDec>\n");
+		
+		add("var",nspace);		// var type varName
+		type(nspace);
+		add(Type.identifier,nspace);
+		
+		while(compare(",")) {   // ( , varName)*
+			add(nspace);
+			add(Type.identifier,nspace);
+		}
+		add(";",nspace);
+		
+		strList.add(space + "</varDec>\n");
+	}
+	public void run() throws ParseError {
+		classStatement("");
+	}
+	public ArrayList<String> output(){
+		return strList;
+	}
+}

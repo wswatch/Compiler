@@ -1,0 +1,132 @@
+import java.io.*;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+class FileException extends Exception{		// throw error
+	public FileException(String s) {
+		super(s);
+	}
+}
+class RW_File {
+	private ArrayList<File> fileList = null;
+	private int fplace = 0;		
+	private boolean ForD = false;
+	public RW_File(String path) throws FileException {
+		fileList = new ArrayList<File>();		// initialize
+		fplace = 0;
+		File file = new File(path);	// read path
+		if(file.exists()) {
+			if(file.isDirectory()) {
+				ForD = true;			// get the information that it is a directory
+				File[] flist = file.listFiles();
+				for(int i = 0; i < flist.length; ++i) {
+					if(isVmFile(flist[i].getAbsolutePath())) {	// check if a file is a vm file.
+						fileList.add(flist[i]);
+					}
+					else {
+						System.out.println(flist[i].getName()+" is not a vm file, it will be ignored");
+					}
+				}
+			}
+			else {
+				ForD = false;		// is a file
+				if (isVmFile(path)){ 
+					fileList.add(file);
+				}
+				else {
+					throw new FileException(file.getName()+" is not a vm file!");
+				}
+			}
+		}
+		else {
+			throw new FileException("Fail to open File "+path+".");
+		}
+	}
+	private boolean isVmFile(String path) {		// check if a file is a vm file
+		if(path.substring(path.length()-3).equals(".vm")) {
+			return true;
+		} 
+		else {
+			return false;
+		}
+	}
+	public ArrayList<String> Read() throws FileException{
+		if(fplace == fileList.size()) {		// read all files
+			return null;
+		}
+		else {			// read file
+			File file = fileList.get(fplace);
+			ArrayList<String> sarray = ReadFile(file);
+			return sarray;
+		}
+	}
+	public ArrayList<String> ReadFile(File file) throws FileException{
+		try {
+			FileReader fileReader = new FileReader(file);
+			BufferedReader buff = new BufferedReader(fileReader);
+			ArrayList<String> sarray = new ArrayList<String>();
+			String line;
+		
+			while( (line = buff.readLine())!= null) {
+				sarray.add(line);
+			}
+			return sarray;
+		}
+		catch (IOException e) {
+			throw new FileException("Fail to read fiile"+file.getName());
+		}
+	}
+	private String getPath(File file) {
+		String path = file.getAbsolutePath();
+		if(ForD) {
+			String target_Dir = file.getParent();
+			target_Dir = target_Dir+"_out";
+			File dir = new File(target_Dir);
+			if(dir.exists() == false) {		// build a new Dir to store the created files
+				dir.mkdir();
+			}
+			String origin_name = file.getName();
+			String name = origin_name.substring(0,origin_name.length()-3)+".asm";
+			Path p = Paths.get(target_Dir,name);
+			path = p.toString();
+		}
+		else {
+			path = path.substring(0,path.length()-3)+".asm";
+		}
+		return path;
+	}
+	public void Write(ArrayList<String> text) throws FileException {
+		if(fplace == fileList.size()) {		// read all files
+			return;
+		}
+		else {			// read file
+			String data = "";
+			for(int i = 0; i < text.size(); ++i) {		// move arraylist into a single string
+//				data = data + text.get(i)+System.getProperty("line.separator");
+				data = data + text.get(i);
+			}
+			File file = fileList.get(fplace);
+			String target_path = getPath(file);
+			WriteFile(data,new File(target_path));
+		}
+	}
+	public void WriteFile(String text, File file)throws FileException{	// write text to path
+		try {
+			System.out.println(text);
+			FileWriter fw = new FileWriter(file);
+			BufferedWriter buff = new BufferedWriter(fw);
+			buff.write(text);
+		}
+		catch(IOException e) {
+			throw new FileException("Fail to write" + file.getName()); 
+		}		
+	}
+	public void nextline() {		// move to next line
+		fplace = fplace + 1;
+	}
+	public String getName() {
+		File file = fileList.get(fplace);
+		String name = file.getName();
+		return name.substring(0,name.length()-3);
+	}
+}

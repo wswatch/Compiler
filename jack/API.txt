@@ -1,0 +1,243 @@
+The program first get the xml language and then use the xml file to generate the vm files
+The part to get the xml is same as files in project10
+Here they are:
+
+Class Compiler
+Name			|argument                | function
+--------------------------------------------------------------------------------------
+Main			| string args,	    | the main function of the project, its entrance
+						    | 
+Class RW_File
+Name			|argument                | function
+--------------------------------------------------------------------------------------
+RW_File		| String path		    | Use path to get the jack file or jack files in a directory
+
+getName		| 			    | return the name of current file
+
+getPath		| File file		    | return where to write the output 
+
+isJackFile		| File file		    | judge if a file is a jack file
+
+Read			| 			    | read the current file's content and return it
+
+ReadFile		| File file		    | read file's content and return it
+
+Write			| ArrayList<String> txt  | write txt to the target file
+			| boolean kind	    | if kind is false, which means it is now write tokens
+			|			    | then use XXXT.xml to the name of the target_file.
+			|			    | Otherwise, get XXX.xml target_file
+
+WriteFile		| String txt		    | write txt to File file
+			| File file		 	
+	
+-----------------------------------------------------------------------------------------
+Class Translate
+Name			|argument                | function
+--------------------------------------------------------------------------------------
+deleteComments	|  String str		    | delete the comment in str
+			| 		 	    | use isInComment to judge if str is in /**/
+
+run			| 		 	    | read a jack file and use other methods to get tokens  
+			|			    | and xml
+
+Class Token
+Paraments		| Use               
+--------------------------------------------------------------------------------------
+String word		| the content of a word
+Type kind		| the type/kind of the token(belongs to one of keyword,symbol,integerConstant,stringConstant,identifier)
+Int linearNum        | use in error handle to tell which line has error		    
+
+
+Class Tokenizer
+Name			|argument                | function
+--------------------------------------------------------------------------------------
+stringToken		| Token token		    | change a token into the output structure <XXX> ZZZ </XXX>
+getOut			|			    | get the output tokens to Write
+
+Add			| char ch		    | judge ch is a new token or a part of the previous word
+			|			    | if it is a new token, first build the restored word as
+			|			    | as a token and the new ch a token.
+			|		           | Otherwise, add this ch to the word.
+
+Check			| char ch		    | if it is a new token, first build the restored word as
+			|			    | as a token and the new ch a token.
+
+Deal			| string str		    | build a token with the content str.
+
+isNum			| string num		    | judge if a string is a number
+
+isIdentifier		| string str		    | judge if a string is a reasonable identifier.
+
+
+
+Class Parser
+Name			|argument                | function
+--------------------------------------------------------------------------------------
+stringToken		| Token token		    | change a token into the output structure <XXX> ZZZ </XXX>
+
+Add			| Type kind		    | judge if the represent tokens' type is kind 
+			| String space	    | if it is, then build a string "space + <XXX> ZZZ </XXX>" to the output
+			|			    | space is the blank space
+			|			    | then move to the next token
+
+Add			| String word		    | judge if the represent tokens' content is word 
+			| String space	    | if it is, then build a string "space + <XXX> word </XXX>" to the output
+			|			    | space is the blank space
+			|			    | then move to the next token
+
+Add			| String space	    | just put the present token to the output
+			| 			    | the structure is "space + <XXX> word </XXX>" to the output
+			|			    | 
+			|			    | then move to the next token
+
+Compare		| Type kind		    | judge if the present token's type is kind
+
+Compare		| String word		    | judge if the present token's content is word
+
+getToken		| char ch		    | get the represent token, and move to the next token
+
+statements		| String space	    | go through the tokens and build the concrete statements form the xml is
+
+statement		| String space	    | go through the tokens and decide which statement it is
+
+letStatement		| String space	    | use tokens to meet with the letStatement's structure and build the correspond part of xml
+
+ifStatement		| String space	    | use tokens to meet with the ifStatement's structure and build the correspond part of xml
+
+doStatement		| String space	    | use tokens to meet with the doStatement's structure and build the correspond part of xml
+
+whileStatement	| String space	    | use tokens to meet with the whileStatement's structure and build the correspond part of xml
+
+returnStatement	| String space	    | use tokens to meet with the returnStatement's structure and build the correspond part of xml
+
+expression		| String space	    | use tokens to meet with the expression's structure and build the correspond part of xml
+
+Term			| String space	    | use tokens to meet with concrete term's structure and build the correspond part of xml
+
+subroutineCall	| String space	    | use tokens to meet with the subroutineCall's structure and build the correspond part of xml
+			|			    | ps: it do not have the <subroutineCall> ... </subroutineCall>
+
+expressionList	| String space	    | use tokens to meet with the expressionList's structure and build the correspond part of xml
+			|			    | use ')' to judge the end of it
+
+op			| 			    | judge if the present token is a op
+
+classStatement	| String space	    | use tokens to meet with the class's structure and build the correspond part of xml
+
+classVarDec		| String space	    | use tokens to meet with the classVarDec's structure and build the correspond part of xml
+
+Type			| String space	    | use tokens to meet with the type's structure and build the correspond part of xml
+
+subroutineDec		| String space	    | use tokens to meet with the subroutineDec's structure and build the correspond part of xml
+
+varDec			| String space	    | use tokens to meet with the varDec's structure and build the correspond part of xml
+
+subroutineBody	| String space	    | use tokens to meet with the subroutineBody's structure and build the correspond part of xml
+
+Run			|			    | start parse the tokens with classStatement
+
+Output			|			    | get the output of the xml
+
+----------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------
+New part:
+SymbolTable file:
+
+XML
+Name			|argument                | function
+--------------------------------------------------------------------------------------
+XML		       | String token	    | return the structure which contains the flag & content of a token
+			| String name		    | if the token is <XXX>, return flag XXX, else if the token is <XXX> YYY </XXX>, return flag XXX and content YYY
+
+symbolTable
+Name			|argument                | function
+--------------------------------------------------------------------------------------
+get			| String name		    | return the content of key (name) , kind, type and order number
+getLol			|			    | return the local number this symbolTable has
+getArg			|			    | return the argument number this symbolTable has
+
+Show			| 			    | show the content of the symbolTable
+
+Add			| String name		    | build a new element and add it to this symbolTable		
+			| String type		    |
+			| String kind		    |
+
+buildTable
+Name			|argument                | function
+--------------------------------------------------------------------------------------
+setTable		| ArrayList<String> xml. | get the content of xml file
+
+getNext		|			    | check the recent token, if it has content, return this content. Otherwise, return its flag
+			|			    | then move to the next token
+
+topXML			| 			    | check the recent token, if it has content, return this content. Otherwise, return its flag
+
+Run			|			    | go through the xml and build the symbolTables
+
+classTable		|			    | When meet token <class>, use this function will build the symbolTable this class has.
+			
+classVarDec		| symbolTable table	    | When meet token <classVarDec>, use it will go through this classVarDec part, and add all variables in this class
+			|			    | to table
+
+subroutineDec		| 			    | when meet token <subroutineDec>, use it will build the symbolTable of this function
+			|			    | Also, it will record the type of this function (method/ construction/ function)
+
+parameterList		| symbolTable table	    | When meet token <parameterList>, use it will go through this parameterList part, and add all argument variable			|			|   			    | in this function to table
+
+varDec			| symbolTable table	    | When meet token <varDec>, use it will go through this varDec part, and add all local variable in this function
+			|			    | to table
+
+----------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------
+Jack file
+
+Jack
+Name			|argument                | function
+--------------------------------------------------------------------------------------
+Set			| ArrayList<String> xml. | get the content of a xml file
+
+Address		| String name		    | use the key(name) to get its kind and order number
+			|			    | Utilize the symbolTable /(if it is a variable in the class, return "this" and order number)
+
+subroutineDec		|			    | go through the whole xml and check each subroutineDec, because jack only need to compile these part
+
+writefunctionHead	| String func		    | use the function name (func) to write "function func arg". 
+			|			    | Then, if it is method, or contructor, write the correspondent part (about the content of this) 
+
+Statements		|			    | When meet token <statements>, use it will go through this statemnets part, and write down all its content
+
+letStatement		|			    | When meet token <letStatement>, use it will go through this letStatemnet part, and write down all its content
+
+whileStatement	|			    | When meet token <whileStatement>, use it will go through this whileStatemnet part, and write down all its content
+
+ifStatement		|			    | When meet token <ifStatement>, use it will go through this ifStatemnet part, and write down all its content
+
+doStatement		|			    | When meet token <doStatement>, use it will go through this doStatemnet part, and write down all its content
+
+returnStatement	|			    | When meet token <returnStatement>, use it will go through this returnStatemnet part, and write down all its content
+ 
+Expression		|			    | When meet token <doStatement>, use the recursive method to write the vm. When meet term (op[i] term[I])*,
+			|			    | the write order is: write_term (write_term[I] write_op[I])*
+
+Op			|			    | get the correspondent vm language of a single operation token
+
+ExpressionList	|			    | When meet token <expressionList>, use it will go through this expressionList part, and write down all its content
+
+subroutineCall	| String word		    | If one can judge it is now at subroutineCall part, then push the arguments to the stack and call this function (word)
+
+term.                | 			    | When meet token <term>, use it will go through this term part, and write down all its content
+			|			    | Judge which one it belongs to. Then use the correspondent function to write down.
+
+array			| String base		    | If we can judge now we have a array, use it. The base argument is the base address of the array. Adding with the expression, 
+			| boolean lr	    	    | the result will be concrete address of the value. Let that be this address.
+			|			    | If lr is false, it means that this array is on the left part of "=". So, it is the address to store new value, do the correspond
+			|			    | operation(pop sth to this address). Otherwise, it is on the right side, just push its value to the stack
+
+writeKeyword		| String txt		    | write the keywordConstant txt in vm language
+
+writeString		| String txt		    | write a string txt in vm language
+
+Thank you for watching!
+	

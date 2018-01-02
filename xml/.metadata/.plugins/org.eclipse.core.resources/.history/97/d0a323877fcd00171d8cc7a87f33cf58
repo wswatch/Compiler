@@ -1,0 +1,230 @@
+package token;
+import java.util.ArrayList;
+class TokenError extends Exception{		// throw error
+	public TokenError(String s) {
+		super(s);
+	}
+}
+enum Type{
+	keyword,symbol,integerConstant,stringConstant,identifier
+}
+class Token{
+	String word;
+	Type type;
+	int lineNum;
+	public Token(String w, Type kind, int n) {
+		word = w;
+		type = kind;
+		lineNum = n;
+	}
+}
+class Tokenizer {
+	ArrayList<Token> tokenList;
+	String word;
+	boolean isInString;
+	int lineNum;
+	public Tokenizer() throws TokenError {
+		tokenList = new ArrayList<Token>();	// initialize
+		word = null;
+		isInString = false;
+		lineNum = 0;
+	}
+	public String stringToken(Token token) {
+		String part = "";
+		switch(token.type) {
+		case symbol: part = "<symbol> "+token.word+" </symbol>\n";break;
+		case keyword: part = "<keyword> "+token.word+" </keyword>\n";break;
+		case integerConstant: part = "<integerConstant> "+token.word+" </integerConstant>\n";break;
+		case stringConstant: part = "<stringConstant> "+token.word+" </stringConstant>\n";break;
+		default: part = "<identifier> "+token.word+" </identifier>\n";
+		}
+		return part;
+	}
+	public ArrayList<String> getOut() {
+		String part = null;
+		Token token = null;
+		ArrayList<String> stringList = new ArrayList<String>();
+		stringList.add("<token>\n");
+		for(int i = 0; i < tokenList.size(); ++i) {
+			token = tokenList.get(i);
+			part = stringToken(token);
+			stringList.add(part);
+		}
+		stringList.add("</token>\n");
+		return stringList;
+	}
+	public ArrayList<Token> getTokenList() {
+		return tokenList;
+	}
+	public void translate(String content, int n) throws TokenError{		
+		word = "";
+		lineNum = n;		// get the line's number
+		for(int i = 0; i < content.length(); ++i) {
+			add(content.charAt(i));
+		}
+		if (isInString) {
+			throw new TokenError("string Constant must be ended in one line");
+		}
+		else if (word.length() > 0 ) {
+			deal(word);
+		}
+	}
+	public void add(char ch) throws TokenError {
+		if(isInString) {		// deal with the string constant
+			if(ch == '"') {
+				Token token = new Token(word,Type.stringConstant,lineNum);
+				tokenList.add(token);
+				word = "";
+				isInString = false;
+			}
+			else
+				word = word + ch;
+		}
+		else {
+			if(ch == '"') {
+				deal(word);		// this might imply some error
+				word = "";
+				isInString = true;
+			}
+			else {
+				check(ch);
+			}
+		}
+	}
+	public void check(char ch) throws TokenError {
+		switch(ch) {
+		case '{':
+		case '}':
+		case '(':
+		case ')':
+		case '[':
+		case ']':
+		case '.':
+		case ',':
+		case ';':
+		case '+':
+		case '-':
+		case '*':
+		case '/':
+		case '|':
+		case '=':
+		case '~':{
+			deal(word);
+			word = "";
+			Token token = new Token(ch+"",Type.symbol,lineNum);
+			tokenList.add(token);
+		};break;
+		case '<':{
+			deal(word);
+			word = "";
+			Token token = new Token("&lt;",Type.symbol,lineNum);
+			tokenList.add(token);
+		};break;
+		case '>':{
+			deal(word);
+			word = "";
+			Token token = new Token("&gt;",Type.symbol,lineNum);
+			tokenList.add(token);
+		};break;
+		case '"':{
+			deal(word);
+			word = "";
+			Token token = new Token("&quot;",Type.symbol,lineNum);
+			tokenList.add(token);
+		};break;
+		case '&':{
+			deal(word);
+			word = "";
+			Token token = new Token("&amp",Type.symbol,lineNum);
+			tokenList.add(token);
+		};break;
+		case ' ':
+		case '\t':{
+			deal(word);
+			word = "";
+		};break;
+		default:{
+			word = word + ch;
+		}
+		}
+	}
+	public void deal(String str) throws TokenError {
+		if(str.length() == 0) {		// empty string 
+			return;
+		}
+		Token token = null;
+		switch(str) {
+		case "class":
+		case "constructor":
+		case "function":
+		case "method":
+		case "field":
+		case "static":
+		case "var":
+		case "int":
+		case "char":
+		case "boolean":
+		case "void":
+		case "true":
+		case "false":
+		case "null":
+		case "this":
+		case "let":
+		case "do":
+		case "if":
+		case "else":
+		case "while":
+		case "return":{
+			token = new Token(str,Type.keyword,lineNum);
+		};break;
+		default:{
+			if(isNum(str)) {
+				if (isValidNum(str)) {
+					token = new Token(str,Type.integerConstant,lineNum);
+				}
+				else {
+					throw new TokenError(str +" is not a valid integer");
+				}
+			}
+			else {
+				if(isIdentifier(str)) {
+					token = new Token(str,Type.identifier,lineNum);
+				}
+				else 
+					throw new TokenError(str + " is not a feasible identifier");
+			}
+		}
+		}
+		tokenList.add(token);
+	}
+	public boolean isNum(String num) {
+		boolean res = true;
+		for (int i = 0; i < num.length() && res; ++i) {
+			res = Character.isDigit(num.charAt(i));		
+		}
+		return res;
+	}
+	public boolean isValidNum(String num) {
+		boolean res = true;
+		if(num.length() > 5)
+			res = false;
+		else if(num.length() == 5 && num.compareTo("32767")>0) {
+			res = false;
+		}
+		return res;
+	}
+	public boolean isIdentifier(String str) {
+		boolean res = true;
+		char ch;
+		for(int i = 0; i < str.length() && res; ++i) {
+			ch = str.charAt(i);
+			if(!Character.isDigit(ch) && !Character.isLetter(ch) && ch != '_') {
+				res = false;
+			}
+		}
+		if(Character.isDigit(str.charAt(0))) {
+			res = false;
+		}
+		return res;
+	}
+}

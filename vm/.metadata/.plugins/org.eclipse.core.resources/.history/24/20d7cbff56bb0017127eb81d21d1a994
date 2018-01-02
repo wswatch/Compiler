@@ -1,0 +1,138 @@
+import java.util.ArrayList;
+class ParseError extends Exception{		// throw error
+	public ParseError(String s) {
+		super(s);
+	}
+}
+enum Type{
+	ADD,			// arithmetic part
+	SUB,
+	NEG,
+	EQ,
+	GT,
+	LT,
+	AND,
+	OR,
+	NOT,
+	PUSH,	// memory part
+	POP,
+	LABEL,
+	GOTO,
+	IF,
+	FUNCTION,
+	RETURN,
+	CALL,
+	NULL,
+	Error,
+}
+enum ARG1{
+	CONSTANT,LOCAL,STATIC,THIS,THAT,POINTER,ARGUMENT,TEMP,NULL,Error
+}
+class Order{
+	public Type func;
+	public ARG1 arg1;
+	public int arg2;
+	public Order() {
+		func = Type.NULL;
+		arg1 = ARG1.NULL;
+		arg2 = -2;		// in hack, the direct number is bigger than -2
+	}
+};
+class Parse {
+	public Parse(){
+		
+	}
+	public Type get_func(String func){
+		Type kind;
+		// arthemic part
+		if(func.length() == 0) kind = Type.NULL;
+		else if (func.equals("add"))  kind = Type.ADD;
+		else if(func.equals("sub")) kind = Type.SUB;
+		else if(func.equals("neg")) kind = Type.NEG;
+		else if(func.equals("eq")) kind = Type.EQ;
+		else if(func.equals("gt")) kind = Type.GT;
+		else if(func.equals("lt")) kind = Type.LT;
+		else if(func.equals("and")) kind = Type.AND;
+		else if(func.equals("or")) kind = Type.OR;
+		else if(func.equals("not")) kind = Type.NOT;
+		// memory part
+		else if(func.equals("push")) kind = Type.PUSH;
+		else if(func.equals("pop")) kind = Type.POP;
+		else kind = Type.Error;
+		return kind;
+	}
+	
+	public Type get_arg1(String arg){
+		Type kind;
+		// arthemic part
+		if(arg.length() == 0) kind = ARG1.NULL;
+		else if (arg.equals("constant"))  kind = ARG1.CONSTANT;
+		else if(func.equals("")) kind = Type.SUB;
+		else if(func.equals("neg")) kind = Type.NEG;
+		else if(func.equals("eq")) kind = Type.EQ;
+		else if(func.equals("gt")) kind = Type.GT;
+		else if(func.equals("lt")) kind = Type.LT;
+		else if(func.equals("and")) kind = Type.AND;
+		else if(func.equals("or")) kind = Type.OR;
+		else if(func.equals("not")) kind = Type.NOT;
+		// memory part
+		else if(func.equals("push")) kind = Type.PUSH;
+		else if(func.equals("pop")) kind = Type.POP;
+		else kind = Type.Error;
+		return kind;
+	}
+	Order get_Order(String line,int lineNum) throws ParseError {
+		String no_Cline= delete_comment(line);		// a line without comment
+		Order order = new Order();
+		int n = no_Cline.length();
+		int i = 0;
+		int startpoint = 0;
+		while(i < n && Character.isWhitespace(no_Cline.charAt(i))) {
+			++i;
+		}
+		startpoint = i;
+		String part = null;		// use to get unwhiteSpace part 
+		while(i<n && Character.isWhitespace(no_Cline.charAt(i)) == false) {
+			++i;
+		}
+		part = no_Cline.substring(startpoint,i);
+		// get func
+		order.func=get_func(part);
+		if(order.func == Type.Error) {
+			throw new ParseError("Line "+lineNum+":"+line+"\n"+"The func part: "+"is not reasonable");
+		}
+		
+		while(i < n && Character.isWhitespace(no_Cline.charAt(i))) {
+			++i;
+		}
+		startpoint = i;
+		while(i<n && Character.isWhitespace(no_Cline.charAt(i)) == false) {
+			++i;
+		}
+		part = no_Cline.substring(startpoint,i);
+		return order;
+	} 
+	String delete_comment(String str){  // delete the contents after //
+	    boolean before_slash = false;  // record if s[i-1] is a slash
+	    boolean has_comment = false;
+	    int comment_start_place = 0;    // record the start place of the comment
+	    int n = str.length();
+	    for(int i = 0; i < n && !has_comment; ++i){
+	        if(str.charAt(i) == '/'){
+	            if(before_slash){
+	                has_comment = true;
+	                comment_start_place = i-1;
+	            }
+	            else
+	                before_slash = true;
+	        }
+	        else{
+	            before_slash = false;
+	        }
+	    }
+	    if(has_comment){    //delete str from comment_start_place
+	        str=str.substring(0,n-comment_start_place);
+	    }
+	    return str;
+	}
+}

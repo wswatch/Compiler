@@ -1,0 +1,79 @@
+package token;
+
+import java.util.ArrayList;
+
+public class Compiler {
+	public static void main1(String[] args) {
+		try {
+			ArrayList<String> list = null;
+			ArrayList<String> list1 = null;
+			ArrayList<String> list2 = null;
+			if(args.length == 2) {
+				Translate compiler = new Translate();
+				RW_File rwfile = new RW_File(args[1]);
+				list = rwfile.Read();
+				while(list != null) {
+					compiler.run(list);
+					list1 = compiler.getTokens();
+					rwfile.Write(list1,false);
+					list2 = compiler.getParse();
+					rwfile.Write(list2,true);
+					rwfile.nextline();
+					list = rwfile.Read();
+				}
+			}
+			else {
+				System.out.println("You can only input one file or directory at a time");
+			}
+		}
+		catch (FileException e) {
+			System.out.println(e.getMessage());
+		}
+		catch (TokenError e) {
+			System.out.println(e.getMessage());
+		} 
+		catch (CommentError e) {
+			System.out.println(e.getMessage());
+		}
+		catch (ParseError e) {
+			System.out.println(e.getMessage());
+		}
+	}
+	public static void main(String[] args) {
+		try {
+			ArrayList<String> list = null;
+			ArrayList<String> list1 = null;
+			ArrayList<String> list2 = null;
+			if(args.length == 0) {
+				String s = "/Users/shuaiwang/Desktop/11/ComplexArrays";
+				RW_File rwfile = new RW_File(s);
+				Translate compiler = new Translate();
+				list = rwfile.Read();
+				while(list != null) {
+					compiler.run(list);
+					list1 = compiler.getTokens();
+					rwfile.Write(list1,false);
+					list2 = compiler.getParse();
+					rwfile.Write(list2,true);
+					rwfile.nextline();
+					list = rwfile.Read();
+				}
+			}
+			else {
+				System.out.println("You can only input one file or directory at a time");
+			}
+		}
+		catch (FileException e) {
+			System.out.println(e.getMessage());
+		}
+		catch (TokenError e) {
+			System.out.println(e.getMessage());
+		}
+		catch (CommentError e) {
+			System.out.println(e.getMessage());
+		} 
+		catch (ParseError e) {
+			System.out.println(e.getMessage());
+		}
+	}
+}

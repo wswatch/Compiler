@@ -1,0 +1,199 @@
+package token;
+import java.util.ArrayList;
+class TokenError extends Exception{		// throw error
+	public TokenError(String s) {
+		super(s);
+	}
+}
+enum Type{
+	keyword,symbol,integerConstant,stringConstant,identifier
+}
+class Token{
+	String word;
+	Type type;
+	public Token(String w, Type kind) {
+		word = w;
+		type = kind;
+	}
+}
+class Tokenizer {
+	ArrayList<Token> tokenList;
+	ArrayList<String> stringList;
+	String word;
+	boolean isInString;
+	public Tokenizer() throws TokenError {
+		tokenList = null;	// initialize
+		word = null;
+		isInString = false;
+		stringList = new ArrayList<String>();
+	}
+	public void fresh() {
+		stringList = new ArrayList<String>();
+	}
+	public void addToken(ArrayList<Token> tokens) {
+		String part = null;
+		Token token = null;
+		for(int i = 0; i < tokens.size(); ++i) {
+			token = tokens.get(i);
+			switch(token.type) {
+			case symbol: part = "<symbol> "+token.word+" </symbol>";break;
+			case keyword: part = "<keyword> "+token.word+" </keyword>";break;
+			case integerConstant: part = "<integerConstant> "+token.word+" </integerConstant>";
+			case stringConstant: part = "<stringConstant> "+token.word+" </stringConstant>";
+			default: part = "<identifier> "+token.word+" </identifier>";
+			}
+			stringList.add(part);
+		}
+	}
+	public ArrayList<String> getOut() {
+		return stringList;
+	}
+	public void translate(String content) throws TokenError{
+		tokenList = new ArrayList<Token>();
+		word = "";
+		for(int i = 0; i < content.length(); ++i) {
+			add(content.charAt(i));
+		}
+		if (isInString) {
+			throw new TokenError("string Constant must be ended in one line");
+		}
+		else if (word.length() > 0 ) {
+			deal(word);
+		}
+	}
+	public void add(char ch) throws TokenError {
+		if(isInString) {		// deal with the string constant
+			if(ch == '"') {
+				deal(word);
+				word = "";
+				isInString = false;
+			}
+			else
+				word = word + ch;
+		}
+		else {
+			if(ch == '"') {
+				deal(word);		// this might imply some error
+				word = "";
+				isInString = true;
+			}
+			else {
+				check(ch);
+			}
+		}
+	}
+	public void check(char ch) throws TokenError {
+		switch(ch) {
+		case '{':
+		case '}':
+		case '(':
+		case ')':
+		case '[':
+		case ']':
+		case '.':
+		case ',':
+		case ';':
+		case '+':
+		case '-':
+		case '*':
+		case '/':
+		case '&':
+		case '|':
+		case '<':
+		case '>':
+		case '=':
+		case '~':{
+			deal(word);
+			word = "";
+			Token token = new Token(ch+"",Type.symbol);
+			tokenList.add(token);
+		};break;
+		case ' ':{
+			deal(word);
+			word = "";
+		};break;
+		default:{
+			word = word + ch;
+		}
+		}
+	}
+	public void deal(String str) throws TokenError {
+		if(str.length() == 0) {		// empty string 
+			return;
+		}
+		Token token = null;
+		switch(str) {
+		case "class":
+		case "constructor":
+		case "function":
+		case "method":
+		case "field":
+		case "static":
+		case "var":
+		case "int":
+		case "char":
+		case "boolean":
+		case "void":
+		case "true":
+		case "false":
+		case "null":
+		case "this":
+		case "let":
+		case "do":
+		case "if":
+		case "else":
+		case "while":
+		case "return":{
+			token = new Token(str,Type.keyword);
+		};break;
+		default:{
+			if(isNum(str)) {
+				if (isValidNum(str)) {
+					token = new Token(str,Type.integerConstant);
+				}
+				else {
+					throw new TokenError(str +" is not a valid integer");
+				}
+			}
+			else {
+				if(isIdentifier(str)) {
+					token = new Token(str,Type.identifier);
+				}
+				else 
+					throw new TokenError(str + " is not a feasible identifier");
+			}
+		}
+		}
+		tokenList.add(token);
+	}
+	public boolean isNum(String num) {
+		boolean res = true;
+		for (int i = 0; i < num.length() && res; ++i) {
+			res = Character.isDigit(num.charAt(i));		
+		}
+		return res;
+	}
+	public boolean isValidNum(String num) {
+		boolean res = true;
+		if(num.length() > 5)
+			res = false;
+		else if(num.length() == 5 && num.compareTo("32767")>0) {
+			res = false;
+		}
+		return res;
+	}
+	public boolean isIdentifier(String str) {
+		boolean res = true;
+		char ch;
+		for(int i = 0; i < str.length() && res; ++i) {
+			ch = str.charAt(i);
+			if(!Character.isDigit(ch) && !Character.isDigit(ch) && ch != '_') {
+				res = false;
+			}
+		}
+		if(Character.isDigit(str.charAt(0))) {
+			res = false;
+		}
+		return res;
+	}
+}

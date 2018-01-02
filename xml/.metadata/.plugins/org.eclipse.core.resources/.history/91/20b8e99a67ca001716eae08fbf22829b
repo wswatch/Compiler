@@ -1,0 +1,10 @@
+package token;
+
+import java.util.ArrayList;
+
+enum Type{
+	keyword,symbol,intergerConstant,stringConstant,identifier,not;
+}
+class Token {
+	
+}

@@ -1,0 +1,83 @@
+This file tells you the main method in this project and what these methods will do.
+
+Class VM_part
+Name			|argument                | function
+--------------------------------------------------------------------------------------
+Main			| string args,	    | the main function of the project, its entrance
+						    | 
+Class RW_File
+Name			|argument                | function
+--------------------------------------------------------------------------------------
+RW_File		| String path		    | Use path to get the vm file or vm files in a directory
+
+getName		| 			    | return the name of current file
+
+getPath		| File file		    | return where to write the output 
+
+isVmFile		| File file		    | judge if a file is a vm file
+
+Read			| 			    | read the current file's content and return it
+
+ReadFile		| File file		    | read file's content and return it
+
+Write			| ArrayList<String> txt  | write txt to the target file
+
+WriteFile		| String txt		    | write txt to File file
+			| File file		 	
+	
+-----------------------------------------------------------------------------------------
+Class Parse
+Name			|argument                | function
+--------------------------------------------------------------------------------------
+Parse		       | ArrayList<String> list | translate each line of list to the asm language 
+			| String name 	    |
+
+delete_comments	| String line 	    | return the line without comments
+
+get_order		| String line		    | get func, arg1 and arg2 of the certain line's vm language
+			| int I		    | I is used to mark which line that make mistake, when error occur
+
+get_func		| String part		    | return which kind of func,arg1
+get_arg1 		|			    | and how big arg2 is
+get_arg2
+
+eq_gt_lt		| Type: the kind of func | translate eg,gt,lt in vm language to hack
+
+add_sub_and_or	| Type: the kind of func | translate add, sub, and , or in vm language to hack
+
+neg_not		| Type: the kind of func | translate neg, not in vm language to hack
+
+Translate		| Order order		    | translate a certain line's vm to hack language
+			| int			    | I is a record about which line is being used
+
+Class Pop
+Name			|argument                | function
+--------------------------------------------------------------------------------------
+pop		       | Order order		    | return the hack language when the its a pop operation in vm
+			| String name		    | name is used when arg1 is "static"
+
+
+Constant			|		    | return the hack language when arg1 is constant, local, argument,this
+local_argument_this_that	|		    | that, static, temp
+Pointer			|
+Stat				|
+Temp				|
+
+Class Push
+Name			|argument                | function
+--------------------------------------------------------------------------------------
+push		       | Order order		    | return the hack language when the its a push operation in vm
+			| String name		    | name is used when arg1 is "static"
+
+
+Constant			|		    | return the hack language when arg1 is constant, local, argument,this
+local_argument_this_that	|		    | that, static, temp
+Pointer			|
+Stat				|
+Temp				|
+
+
+
+
+
+	

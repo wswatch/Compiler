@@ -1,0 +1,5 @@
+import java.io.File;
+public class VM_part1 {
+	public static void main(String[] args) {
+	}
+}

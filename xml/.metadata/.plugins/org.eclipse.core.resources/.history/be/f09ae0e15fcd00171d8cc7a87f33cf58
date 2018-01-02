@@ -1,0 +1,431 @@
+package token;
+
+import java.util.ArrayList;
+class ParseError extends Exception{		// throw error
+	public ParseError(String s) {
+		super(s);
+	}
+}
+class Parse {
+	private ArrayList<String> strList = null;
+	private ArrayList<Token> tokenList = null;
+	private int tokenNum ;
+	public Parse(ArrayList<Token> list) {
+		tokenList = list;
+		tokenNum = 0;
+		strList = new ArrayList<String>();
+	}
+	public Token getToken(){
+		Token token = tokenList.get(tokenNum);
+		if (tokenNum < tokenList.size()) 
+			++tokenNum;
+		return token;
+	}
+	public String emptySpace(int i) {
+		String str = "";
+		for (int j = 0; j < i; ++j) {
+			str = str + "  ";
+		}
+		return str;
+	}
+	public void varName(int depth) throws ParseError {
+		String space = emptySpace(depth);
+		strList.add(space + " <varName>\n");
+		Token token = getToken();
+		if (token.type == Type.identifier) {
+			strList.add(space + "  <identifier> "+token.word+" </identifier>\n");
+		}
+		else {
+			throw new ParseError(token.word + " is not identifier");
+		}
+		strList.add(space + " </varName>\n");
+	}
+	public void statements(int depth) throws ParseError {
+		String space = emptySpace(depth);
+		strList.add(space + "<statements>\n");
+		Token token = getToken();
+		while (tokenNum < tokenList.size() && (token.word.equals("}") == false)) {
+			--tokenNum;
+			statement(depth+1);
+			token = getToken();
+		}
+		strList.add(space + "</statements>\n");
+	}
+	public void statement(int depth) throws ParseError {
+		String space = emptySpace(depth);
+		Token token = getToken();
+		String word = token.word;
+		switch (word) {
+		case "let":letStatement(depth);break;
+		case "if":ifStatement(depth);break;
+		case "while":whileStatement(depth);break;
+		case "do":doStatement(depth);break;
+		case "return":returnStatement(depth);break;
+		default: throw new ParseError(word + " is no what statement need");
+		}
+	}
+	public void letStatement(int depth) throws ParseError {
+		String space = emptySpace(depth);
+		strList.add(space + "<letStatement>\n");
+		Token token = getToken();
+		String word = token.word;
+		strList.add(space + "  <keyword> let </keyword>\n");
+		
+		varName(depth+1);
+		
+		token = getToken();
+		if (token.word == "[") {
+			strList.add(space + "  <symbol> [ </symbol>\n");
+			expression(depth);
+			token = getToken();
+			if (token.word == "]") {
+				strList.add(space + "  <symbol> ] </symbol>\n");
+			}
+			else {
+				throw new ParseError(token.word + " is not ]");
+			}
+			token = getToken();
+		}
+		if (token.word == "=") {
+			strList.add(space + "  <symbol> = </symbol>\n");
+		}
+		else {
+			throw new ParseError(token.word + " is not =");
+		}
+		expression(depth+1);
+		
+		token = getToken();
+		if (token.word == ";") {
+			strList.add(space + "  <symbol> ; </symbol>\n");
+		} 
+		else {
+			throw new ParseError(token.word + " is not ;");
+		}
+		
+		strList.add(space + "</letStatement>\n");
+	}
+	public void ifStatement(int depth) throws ParseError {
+		String space = emptySpace(depth);
+		strList.add(space + "<ifStatement>\n");
+		strList.add(space + "  <keyword> if </keyword>\n");
+		Token token = getToken();
+		if(token.word == "(") {		// check (expression)
+			strList.add(space + "  <symbol> ( </symbol>\n");
+			expression(depth+1);
+			token = getToken();
+			if (token.word == ")") {
+				strList.add(space + "  <symbol> ) </symbol>\n");
+			}
+			else {
+				throw new ParseError(token.word +" is not a )");
+			}
+		}
+		else {
+			throw new ParseError(token.word +" is not a (");
+		}
+		
+		token = getToken();
+		if(token.word == "{") {		// check {statements}
+			strList.add(space + "  <symbol> { </symbol>\n");
+			statements(depth+1);
+			token = getToken();
+			if (token.word == "}") {
+				strList.add(space + "  <symbol> } </symbol>\n");
+			}
+			else {
+				throw new ParseError(token.word +" is not a }");
+			}
+		}
+		else {
+			throw new ParseError(token.word +" is not a {");
+		}
+		
+		token = getToken();
+		if(token.word == "else") {
+			strList.add(space + "  <keyword> else </keyword>\n");
+			token =  getToken();
+			if(token.word == "{") {		// check {statements}
+				strList.add(space + "  <symbol> { </symbol>\n");
+				statements(depth+1);
+				token = getToken();
+				if (token.word == "}") {
+					strList.add(space + "  <symbol> } </symbol>\n");
+				}
+				else {
+					throw new ParseError(token.word +" is not a }");
+				}
+			}
+			else {
+				throw new ParseError(token.word +" is not a {");
+			}
+		}
+		else {
+			--tokenNum;
+		}
+		strList.add(space + "</ifStatement>\n");
+	}
+	public void whileStatement(int depth) throws ParseError{
+		String space = emptySpace(depth);
+		strList.add(space + "<whileStatement>\n");
+		
+		strList.add(space + "  <keyword> while </keyword>\n");
+		Token token = getToken();
+		if(token.word == "(") {		// check (expression)
+			strList.add(space + "  <symbol> ( </symbol>\n");
+			expression(depth+1);
+			token = getToken();
+			if (token.word == ")") {
+				strList.add(space + "  <symbol> ) </symbol>\n");
+			}
+			else {
+				throw new ParseError(token.word +" is not a )");
+			}
+		}
+		else {
+			throw new ParseError(token.word +" is not a (");
+		}
+		
+		token = getToken();
+		if(token.word == "{") {		// check {statements}
+			strList.add(space + "  <symbol> { </symbol>\n");
+			statements(depth+1);
+			token = getToken();
+			if (token.word == "}") {
+				strList.add(space + "  <symbol> } </symbol>\n");
+			}
+			else {
+				throw new ParseError(token.word +" is not a }");
+			}
+		}
+		else {
+			throw new ParseError(token.word +" is not a {");
+		}
+		
+		strList.add(space + "</whileStatement>\n");
+	}
+	public void doStatement(int depth) throws ParseError {
+		String space = emptySpace(depth);
+		strList.add(space + "<doStatement>\n");
+		
+		strList.add(space + "  <keyword> do </keyword>\n");
+		subroutineCall(depth+1);
+		Token token = getToken();
+		if (token.word == ";") {
+			strList.add(space + "  <symbol> ; </symbol>\n");
+		}
+		else {
+			throw new ParseError(token.word +"is not ;");
+		}
+		
+		strList.add(space + "<doStatement>\n");
+	}
+	public void returnStatement(int depth) throws ParseError {
+		String space = emptySpace(depth);
+		strList.add(space + "<returnStatement>\n");
+		strList.add(space + "  <keyword> return </keyword>\n");
+		Token token = getToken();
+		if (token.word.equals(";") == false) {
+			expression(depth+1);
+			token = getToken();
+		}
+		if (token.word == ";") {
+			strList.add(space + "  <symbol> ; </symbol>\n");
+		}
+		else {
+			throw new ParseError(token.word + " is not a ;");
+		}
+		strList.add(space + "<returnStatement>\n");
+	}
+	public void expression(int depth) throws ParseError{
+		String space = emptySpace(depth);
+		strList.add(space + "<expression>\n");
+		term(depth+1);
+		while (op(depth+1)) {
+			term(depth+1);
+		}
+		strList.add(space + "</expression>\n");
+	}
+	public void term(int depth) throws ParseError {
+		String space = emptySpace(depth);
+		strList.add(space + "<term>\n");
+		
+		Token token = getToken();
+		switch(token.type) {
+		case integerConstant: { strList.add(space + "  <integerConstant> "+token.word+" </integerConstant>\n");};break;
+		case stringConstant: { strList.add(space + "  <stringConstant> "+token.word+" </stringConstant>\n");};break;
+		case keyword: { 
+			switch(token.word) {
+			case "true":
+			case "false":
+			case "null":
+			case "this":strList.add(space + "  <keyword> "+token.word+" </keyword>\n");break;
+			default: throw new ParseError(token.word + "  is not a keyConstant");
+			}
+		};break;
+		case symbol: {
+			if (token.word == "-" || token.word == "~") {
+				strList.add(space + "  <symbol> "+token.word+" </symbol>\n");
+				term(depth+1);
+			}
+			else if(token.word == "(") {
+				strList.add(space + "  <symbol> ( </symbol>\n");
+				expression(depth+1);
+				token = getToken();
+				if (token.word == ")") {
+					strList.add(space + "  <symbol> ) </symbol>\n");
+				}
+				else {
+					throw new ParseError(token.word +" is not a )");
+				}
+			}
+			else {
+				throw new ParseError(token.word +" is not a unaryOp");
+			}
+		};break;
+		default: {
+			String ide = token.word;
+			token = getToken();
+			if (token.word == "[") {		// varName[expression]
+				strList.add(space + "  <identifier> "+ide+" </identifier>\n");
+				strList.add(space + "  <symbol> [ </symbol>\n");
+				expression(depth+1);
+				token = getToken();
+				if (token.word == "]") {
+					strList.add(space + "  <symbol> ] </symbol>\n");
+				}
+				else {
+					throw new ParseError( token.word + "is not a ]");
+				}
+			}
+			else if(token.word == "."|| token.word == "(") {	// subroutineCall
+				tokenNum =  tokenNum - 2;
+				subroutineCall(depth+1);
+			}
+			else {				//varName
+				--tokenNum;
+			}
+		}
+		}
+		
+		strList.add(space + "</term>\n");
+	}
+	public void subroutineCall(int depth) throws ParseError {
+		String space = emptySpace(depth);
+		strList.add(space+ "<subroutineCall\n>");
+		Token token = getToken();
+		if (token.type == Type.identifier) {
+			strList.add(space + "  <identifier> "+ token.word + "</identifier>\n");
+		}
+		else {
+			throw new ParseError(token.word + "is not a identifier");
+		}
+		token = getToken();
+		if (token.word == ".") {		// check (className|varName).subroutineName
+			strList.add(space + "  <symbol> . </symbol>\n");
+			token = getToken();
+			if (token.type == Type.identifier ) {
+				strList.add(space + "  <identifier> "+ token.word + "</identifier>\n");
+			}
+			else {
+				throw new ParseError(token.word + "is not a subroutineName");
+			}
+			token = getToken();
+		}
+		
+		if(token.word == "(") {		// check (expression)
+			strList.add(space + "  <symbol> ( </symbol>\n");
+			expressionList(depth+1);
+			token = getToken();
+			if (token.word == ")") {
+				strList.add(space + "  <symbol> ) </symbol>\n");
+			}
+			else {
+				throw new ParseError(token.word +" is not a )");
+			}
+		}
+		else {
+			throw new ParseError(token.word +" is not a (");
+		}
+		strList.add(space+ "</subroutineCall>\n");
+	}
+	public void expressionList(int depth) throws ParseError {
+		String space = emptySpace(depth);
+		strList.add(space + "<expressionList>\n");
+		Token token = getToken();
+		if (token.word == ")" ) {		// empty
+			--tokenNum;	
+		}
+		else {				// has at least one expression
+			--tokenNum;
+			expression(depth+1);
+			token = getToken();
+			while (token.word == ",") {		// use ',' to judge the (expression)*
+				expression(depth+1);
+				token = getToken();
+			}
+			--tokenNum;
+		}
+		strList.add(space + "</expressionList>\n");
+	}
+	public boolean op(int depth) {
+		Token token = getToken();
+		boolean res = true;
+		switch (token.word) {
+		case "+":
+		case "-":
+		case "*":
+		case "/":
+		case "&quot;":
+		case "|":
+		case "&lt;":
+		case "&gt;":
+		case "=":{
+			String space = emptySpace(depth);
+			strList.add(space + "  <symbol> "+ token.word + "</symbol>\n");
+		};break;
+		default: {
+			res = false;
+			--tokenNum;
+		}
+		}
+		return res;
+	}
+	public void classStatement(int depth) throws ParseError {
+		String space = emptySpace(depth);
+		strList.add(space + "<class>\n");
+		
+		Token token = getToken();
+		if (token.word == "class") {
+			strList.add(space + "  <keyword> class </keyword>\n");
+		}
+		else {
+			throw new ParseError(token.word + " is not class");
+		}
+		token = getToken();
+		if (token.type == Type.identifier) {
+			strList.add(space + "  <identifier> " + token.word + " </identifier>\n");
+		}
+		else {
+			throw new ParseError(token.word + " is not identifier");
+		}
+		
+		token = getToken();
+		if (token.word == "{") {
+			strList.add(space + "  <symbol> { </identifier>\n");
+		}
+		else {
+			throw new ParseError(token.word + " is not {");
+		}
+		
+		token = getToken();
+		if (token.word == "{") {
+			strList.add(space + "  <symbol> { </symbol>\n");
+		}
+		else {
+			throw new ParseError(token.word + " is not {");
+		}
+		
+		strList.add(space + "</class>\n");
+		
+	}
+}

@@ -1,0 +1,486 @@
+import java.util.ArrayList;
+class ParseError extends Exception{		// throw error
+	public ParseError(String s) {
+		super(s);
+	}
+}
+enum Type{
+	ADD,			// arithmetic part
+	SUB,
+	NEG,
+	EQ,
+	GT,
+	LT,
+	AND,
+	OR,
+	NOT,
+	PUSH,	// memory part
+	POP,
+	LABEL,
+	GOTO,
+	IF,
+	FUNCTION,
+	RETURN,
+	CALL,
+	NULL,
+	Error,
+}
+enum ARG1{
+	CONSTANT,LOCAL,STATIC,THIS,THAT,POINTER,ARGUMENT,TEMP,NULL,Error
+}
+class Order{
+	public Type func;
+	public ARG1 arg1;
+	public int arg2;
+	public Order() {
+		func = Type.NULL;
+		arg1 = ARG1.NULL;
+		arg2 = -2;		// in hack, the direct number is bigger than -2
+	}
+};
+class Parse {
+	private ArrayList<String> content = null;
+	private String filename;
+	private Push push = null;
+	private Pop pop = null;
+	/*
+	public static void main(String[] args) {
+		Parse p = new Parse(); 
+		p.test();
+	}*/
+	public void test(){
+		String p = "push constant 7";
+		try {
+			Order o = get_Order(p,0);
+		} catch (ParseError e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	public Parse() {
+		
+	}
+	public Parse(ArrayList<String> text,String name) throws ParseError{
+		filename = name;		//initialize
+		push = new Push();
+		pop = new Pop();
+		content = new ArrayList<String>();
+		for (int i = 0; i < text.size(); ++i) {
+//			System.out.println(text.get(i));
+			try { 
+			String NonCommentLine = delete_comment(text.get(i));
+			Order order = get_Order(NonCommentLine,i+1);
+			String part = translate(order,i);
+			if( part.length() > 0) {
+				content.add(part);
+			}
+			}
+			catch(ParseError e) {
+				int lineNum = i + 1;
+				throw new ParseError("Line "+lineNum+" "+text.get(i)+"\n"+e.getMessage());
+			}
+		}
+	}
+	public ArrayList<String> getContent() {
+		return content;
+	};
+	public String add_sub_and_or(Type kind) {	// finish add and sub
+		String txt = "@SP\n"
+				    +"AM=M-1\n"
+				    +"D=M\n"
+				    +"A=A-1\n";
+		switch(kind) {
+		case ADD:{
+			 txt=txt+"M=M+D\n";
+		};break;
+		case SUB:{
+			 txt=txt+"M=M-D\n";
+		};break;
+		case AND:{
+			 txt=txt+"M=M&D\n";
+		};break;
+		case OR:{
+			 txt=txt+"M=M|D\n";
+		};break;
+		}
+		return txt;
+	}
+	public String neg_not(Type kind) {
+		String txt = "@SP\n"
+				    +"A=M-1\n";
+		if(kind == Type.NEG)
+			 txt=txt+"M=-M\n";
+		else
+			 txt=txt+"M=!M\n";
+		return txt;
+	}
+	public String eq_gt_lt(Type kind,int place) {	// use line number to CONTINUE,FALSE in 
+		String txt = "@SP\n"				// the different gt,eq or lt
+					+"AM=M-1\n"
+				    +"D=M\n"
+					+"A=A-1\n"
+					+"D=M-D\n"
+					+"@FALSE"+ place+"\n";
+		switch(kind) {
+		case GT:{
+			 txt=txt+"D;JLE\n";
+		};break;
+		case LT:{
+			 txt=txt+"D;JGE\n";
+		};break;
+		default:{		// eq
+			 txt=txt+"D;JNE\n";
+		}
+		}
+			 txt=txt	+"@SP\n"
+					+"A=M-1\n"
+					+"M=-1\n"
+					+"@CONTINUE"+place+"\n"
+					+"0;JMP\n"
+					+"(FALSE"+place+")\n"
+					+"@SP\n"
+					+"A=M-1\n"
+					+"M=0\n"
+					+"(CONTINUE"+place+")\n";
+	return txt;
+	}
+	public String translate(Order order,int lineNum) throws ParseError {
+		String asm = null;
+		switch(order.func) {
+		case NULL:{ asm = "";};break;
+		case ADD:
+		case SUB:
+		case AND:
+		case OR:{
+			asm = add_sub_and_or(order.func);
+			if (order.arg1 != ARG1.NULL || order.arg2 != -2) {
+				switch(order.func) {
+				case ADD:throw new ParseError("Add should be the only part in it");
+				case SUB:throw new ParseError("Sub should be the only part in it");
+				case AND:throw new ParseError("And should be the only part in it");
+				default :throw new ParseError("OR should be the only part in it");
+				//OR
+				}
+			}
+		};break;	
+		case NEG:
+		case NOT:{
+			asm = neg_not(order.func);
+			if (order.arg1 != ARG1.NULL || order.arg2 != -2) {
+				if (order.func == Type.NEG)
+					throw new ParseError("Neg should be the only part in it");
+				else
+					throw new ParseError("Not should be the only part in it");
+			}
+		};break;
+		case EQ:
+		case GT:
+		case LT:{
+			asm = eq_gt_lt(order.func,lineNum);
+			if(order.arg1 != ARG1.NULL || order.arg2 != -2) {
+				switch(order.func) {
+				case EQ:throw new ParseError("Eq should be the only part in it");
+				case GT:throw new ParseError("Gt should be the only part in it");
+				default:throw new ParseError("Lt should be the only part in it");
+				}
+			}
+		};break;
+		case PUSH:{	// memory part
+			asm=push.push(order,filename);
+		};break;
+		case POP:{
+			asm=pop.pop(order, filename);
+		};break;
+		default:{
+			throw new ParseError("func part is not reasonable");
+		}
+		}
+		return asm;
+	}
+	public Type get_func(String func)throws ParseError{
+		Type kind;
+		// arthemic part
+		if(func.length() == 0) kind = Type.NULL;
+		else if (func.equals("add"))  kind = Type.ADD;
+		else if(func.equals("sub")) kind = Type.SUB;
+		else if(func.equals("neg")) kind = Type.NEG;
+		else if(func.equals("eq")) kind = Type.EQ;
+		else if(func.equals("gt")) kind = Type.GT;
+		else if(func.equals("lt")) kind = Type.LT;
+		else if(func.equals("and")) kind = Type.AND;
+		else if(func.equals("or")) kind = Type.OR;
+		else if(func.equals("not")) kind = Type.NOT;
+		// memory part
+		else if(func.equals("push")) kind = Type.PUSH;
+		else if(func.equals("pop")) kind = Type.POP;
+		else {
+			throw new ParseError(func + " is not a reasonable func part!");
+		}
+		return kind;
+	}
+	
+	public ARG1 get_arg1(String arg)throws ParseError{
+		ARG1 kind;
+		// arthemic part
+		if(arg.length() == 0) kind = ARG1.NULL;
+		else if(arg.equals("static")) kind = ARG1.STATIC;
+		else if (arg.equals("constant"))  kind = ARG1.CONSTANT;
+		else if(arg.equals("local")) kind = ARG1.LOCAL;
+		else if(arg.equals("argument")) kind = ARG1.ARGUMENT;
+		else if(arg.equals("this")) kind = ARG1.THIS;
+		else if(arg.equals("that")) kind = ARG1.THAT;
+		else if(arg.equals("pointer")) kind = ARG1.POINTER;
+		else if(arg.equals("temp")) kind = ARG1.TEMP;
+		else {
+			throw new ParseError(arg + " is not a reasonable second part of an instruction!");
+		}
+		return kind;
+	}
+	
+	public int get_arg2(String arg) throws ParseError {
+		int num = 0;
+		try {
+			if (arg.length() == 0) {
+				num = -2;
+			}
+			else {
+				num = Integer.parseInt(arg);
+				if (num < 0) {
+					throw new ParseError(arg+"must be a positive Integer");
+				}
+			}
+			return num;
+		}
+		catch(NumberFormatException e){
+			throw new ParseError(arg+" is not a reasonable integer!");
+		}
+	}
+	public Order get_Order(String line,int lineNum) throws ParseError {
+		String no_Cline= delete_comment(line);		// a line without comment
+		Order order = new Order();
+		int n = no_Cline.length();
+		int i = 0;
+		int startpoint = 0;
+		while(i < n && Character.isWhitespace(no_Cline.charAt(i))) {		// delete Whitespace part
+			++i;
+		}
+		startpoint = i;
+		String part = null;		// use to get unwhiteSpace part 
+		while(i<n && Character.isWhitespace(no_Cline.charAt(i)) == false) {	
+			++i;
+		}
+		part = no_Cline.substring(startpoint,i);
+		// get func
+//		System.out.println(part);
+		order.func=get_func(part);
+		
+		while(i < n && Character.isWhitespace(no_Cline.charAt(i))) {
+			++i;
+		}
+		startpoint = i;
+		while(i<n && Character.isWhitespace(no_Cline.charAt(i)) == false) {
+			++i;
+		}
+		part = no_Cline.substring(startpoint,i);
+		// get arg1
+//		System.out.println(part);
+		order.arg1 = get_arg1(part);
+		
+		while(i < n && Character.isWhitespace(no_Cline.charAt(i))) {
+			++i;
+		}
+		startpoint = i;
+		while(i<n && Character.isWhitespace(no_Cline.charAt(i)) == false) {
+			++i;
+		}
+		part = no_Cline.substring(startpoint,i);
+		// get_arg2
+//		System.out.println(part);
+		order.arg2 = get_arg2(part);
+		// judge if it has the forth string
+		while(i<n && Character.isWhitespace(no_Cline.charAt(i)) == false) {
+			++i;
+		}
+		if (i < n){			// when elements have more than 3
+			throw new ParseError("The line contains more than 3 parts!");
+		}
+		return order;
+	} 
+	public String delete_comment(String str){  // delete the contents after //
+	    boolean before_slash = false;  // record if s[i-1] is a slash
+	    boolean has_comment = false;
+	    int comment_start_place = 0;    // record the start place of the comment
+	    int n = str.length();
+	    for(int i = 0; i < n && !has_comment; ++i){
+	        if(str.charAt(i) == '/'){
+	            if(before_slash){
+	                has_comment = true;
+	                comment_start_place = i-1;
+	            }
+	            else
+	                before_slash = true;
+	        }
+	        else{
+	            before_slash = false;
+	        }
+	    }
+	    if(has_comment){    //delete str from comment_start_place
+	        str=str.substring(0,comment_start_place);
+	    }
+	    return str;
+	}
+}
+class Push {
+	public String constant(int arg2) {		// constant
+		String txt = "@"+arg2+"\n"
+				   + "D=A\n";
+		return txt;
+	}
+	public String stat(int arg2,String name) {		// static
+		String txt = "@"+name+"."+arg2+"\n"
+				   + "D=M\n";
+		return txt;
+	}
+	public String local_argument_this_that(int arg2,ARG1 kind) {
+		String txt = null;
+		switch(kind) {
+		case LOCAL:txt = "@LCL\n";break;
+		case ARGUMENT:txt = "@ARG\n";break;
+		case THIS:txt = "@THIS\n";break;
+		default:txt = "@THAT\n";break;
+		}
+		txt= txt	+ "D=M\n"
+				+ "@"+arg2+"\n"
+				+ "A=D+A\n"
+				+ "D=M\n";
+		return txt;
+	}
+	public String temp(int arg2) throws ParseError{
+		if (arg2 > 7) {		// out of range
+			throw new ParseError("temp's range must be 0-7");
+		}
+		else {
+			String txt = "@5\n"
+					   + "D=A\n"
+					   + "@"+arg2+"\n"
+					   + "A=D+A\n"
+					   + "D=M\n";
+			return txt;
+		}
+	}
+	public String pointer(int arg2) throws ParseError{
+		String txt = null;
+		if(arg2 == 0) {
+			txt = "@THIS\n";
+		}
+		else if(arg2 == 1){
+			txt = "@THAT\n";
+		}
+		else {
+			throw new ParseError("pointer's can only be 0 or 1");
+		}
+		txt = txt+"D=M\n";
+		return txt;
+	}
+	// get the string of push
+	public String push(Order order,String name) throws ParseError{
+		String head = null;
+		switch(order.arg1) {
+		case CONSTANT: head = constant(order.arg2);break;
+		case STATIC: head = stat(order.arg2,name);break;
+		case POINTER: head = pointer(order.arg2);break;
+		case TEMP:head = temp(order.arg2);break;
+		default:head = local_argument_this_that(order.arg2,order.arg1);
+		}
+		String tail = "@SP\n"
+					+ "A=M\n"
+					+ "M=D\n"
+					+ "@SP\n"
+					+ "M=M+1\n";
+		return head+tail;
+	}
+}
+
+class Pop {
+	public String constant(int arg2) throws ParseError{		// constant
+		throw new ParseError("Can not pop information to a constant number");
+	}
+	public String stat(int arg2,String name) {		// static
+		String txt = "@SP\n"
+				   + "AM=M-1\n"
+				   + "D=M\n"
+			       + "@"+name+"."+arg2+"\n"
+				   + "M=D\n";
+		return txt;
+	}
+	public String local_argument_this_that(int arg2,ARG1 kind) {
+		String txt = null;
+		switch(kind) {
+		case LOCAL:txt = "@LCL\n";break;
+		case ARGUMENT:txt = "@ARG\n";break;
+		case THIS:txt = "@THIS\n";break;
+		default:txt = "@THAT\n";break;
+		}
+		txt= txt	+ "D=M\n"
+				+ "@"+arg2+"\n"
+				+ "D=D+A\n"
+				+ "@R13\n"
+				+ "M=D\n"
+				+ "@SP\n"
+				+ "AM=M-1\n"
+				+ "D=M\n"
+				+ "@R13\n"
+				+ "A=M\n"
+				+ "M=D\n";
+		return txt;
+	}
+	public String temp(int arg2) throws ParseError{
+		if (arg2 > 7) {		// out of range
+			throw new ParseError("temp's range must be 0-7");
+		}
+		else {
+			String txt = "@5\n"
+					   + "D=A\n"
+					   + "@"+arg2+"\n"
+					   + "D=D+A\n"
+			     	   + "@R13\n"
+					   + "M=D\n"
+					   + "@SP\n"
+					   + "AM=M-1\n"
+					   + "D=M\n"
+					   + "@R13\n"
+					   + "A=M\n"
+					   + "M=D\n";
+			return txt;
+		}
+	}
+	public String pointer(int arg2) throws ParseError{
+		String txt =    "@SP\n"
+					  + "AM=M-1\n"
+					  + "D=M\n";
+		if(arg2 == 0) {
+			txt = txt + "@THIS\n";
+		}
+		else if(arg2 == 1){
+			txt = txt + "@THAT\n";
+		}
+		else {
+			throw new ParseError("pointer's can only be 0 or 1");
+		}
+		txt = txt+"M=D\n";
+		
+		return txt;
+	}
+	// get the string of pop
+	public String pop(Order order,String name) throws ParseError{
+		String txt = null;
+		switch(order.arg1) {
+		case CONSTANT: txt = constant(order.arg2);break;
+		case STATIC: txt = stat(order.arg2,name);break;
+		case POINTER: txt = pointer(order.arg2);break;
+		case TEMP:txt = temp(order.arg2);break;
+		default:txt = local_argument_this_that(order.arg2,order.arg1);
+		}
+		return txt;
+	}
+}

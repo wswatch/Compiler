@@ -1,0 +1,94 @@
+import java.io.*;
+import java.util.ArrayList;
+class FileException extends Exception{		// throw error
+	public FileException(String s) {
+		super(s);
+	}
+}
+class RW_File {
+	private ArrayList<File> fileList = null;
+	private int fplace = 0;		// 
+	public RW_File(String path) throws FileException {
+		fileList = new ArrayList<File>();		// initialize
+		fplace = 0;
+		File file = new File(path);	// read path
+		if(file.exists()) {
+			if(file.isDirectory()) {
+				File[] flist = file.listFiles();
+				for(int i = 0; i < flist.length; ++i) {
+					if(isVmFile(flist[i].getAbsolutePath())) {	// check if a file is a vm file.
+						fileList.add(flist[i]);
+					}
+					else {
+						System.out.println("The file"+flist[i].getName()+"is not a vm file, it will be ignored");
+					}
+				}
+			}
+			else {
+				if (isVmFile(path)){ 
+					fileList.add(file);
+				}
+				else {
+					throw new FileException(file.getName()+"is not a vm file!");
+				}
+			}
+		}
+		else {
+			throw new FileException("Fail to open File "+path+".");
+		}
+	}
+	private boolean isVmFile(String path) {		// check if a file is a vm file
+		if(path.substring(path.length()-3).equals(".vm")) {
+			return true;
+		} 
+		else {
+			return false;
+		}
+	}
+	public ArrayList<String> Read() throws FileException,FileNotFoundException{
+		if(fplace == fileList.size()) {		// read all files
+			return null;
+		}
+		else {			// read file
+			File file = fileList.get(fplace);
+			ArrayList<String> sarray = ReadFile(file);
+			return sarray;
+		}
+	}
+	public ArrayList<String> ReadFile(File file) throws FileException, FileNotFoundException{
+		FileReader fileReader = new FileReader(file);
+		BufferedReader buff = new BufferedReader(fileReader);
+		ArrayList<String> sarray = new ArrayList<String>();
+		String line;
+		try {
+			while( (line = buff.readLine())!= null) {
+				sarray.add(line);
+			}
+		}
+		catch (IOException e) {
+			throw new FileException("Fail to read fiile"+file.getName());
+		}
+		return sarray;
+	}
+	public void Write(ArrayList<String> text) {
+		if(fplace == fileList.size()) {		// read all files
+			return;
+		}
+		else {			// read file
+			File file = fileList.get(fplace);
+			String path = file.getAbsolutePath();
+			path = path.substring(0,path.length()-3)+".asm";
+			
+		}
+	}
+	public void WriteFile(String text, File file)throws FileException{	// write text to path
+		try {
+			FileWriter fw = new FileWriter(file);
+			BufferedWriter buff = new BufferedWriter(fw);
+			buff.write(text);
+		}
+		catch(IOException e) {
+			throw new FileException("Fail to write" + file.getName()); 
+		}		
+	}
+}

@@ -1,0 +1,59 @@
+import java.io.IOException;
+import java.util.ArrayList;
+public class VM {
+	public static void main(String[] args) {
+		try {
+			String path = "/Users/shuaiwang/Desktop/08/FunctionCalls/FibonacciElement";
+				RW_File f = new RW_File(path);
+				Parse parse = new Parse();
+				String leetcode = parse.startCode(f.isDirectory());
+				f.create(leetcode);		// get the destination file
+				ArrayList<String> file_translate = null;
+				ArrayList<String> file_origin_content = f.Read();
+				while(file_origin_content != null) {
+					parse.reset(file_origin_content, f.getName());
+					file_translate = parse.getContent();
+					f.Write(file_translate);
+					System.out.println("Finish file "+f.getName());
+					f.nextline();
+					file_origin_content = f.Read();
+				}
+			}
+		catch(FileException e) {
+			System.out.println(e.getMessage());
+		}
+		catch(ParseError e) {
+			System.out.println(e.getMessage());
+		} catch (IOException e) {
+			System.out.println("Fail to create the destination file");
+		}		
+	}
+/*
+	public static void main(String[] args) {
+		try {
+			if(args.length != 1) {
+				throw new FileException("You need to input one and only one file or directory!");
+			}
+			else {
+				RW_File f = new RW_File(args[0]);
+				ArrayList<String> file_translate = null;
+				ArrayList<String> file_origin_content = f.Read();
+				while(file_origin_content != null) {
+					Parse parse = new Parse(file_origin_content, f.getName());
+					file_translate = parse.getContent();
+					f.Write(file_translate);
+					System.out.println("Finish file "+f.getName());
+					f.nextline();
+					file_origin_content = f.Read();
+				}
+			}
+		}
+		catch(FileException e) {
+			System.out.println(e.getMessage());
+		}
+		catch(ParseError e) {
+			System.out.println(e.getMessage());
+		}
+	}
+*/
+}

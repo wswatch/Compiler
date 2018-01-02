@@ -1,0 +1,54 @@
+import java.io.File;
+import java.util.ArrayList;
+public class VM_part1 {
+	public static void main(String[] args) {
+		
+		try {
+			String path = "/Users/shuaiwang/Desktop/07/StackArithmetic/SimpleAdd";
+				RW_File f = new RW_File(path);
+				ArrayList<String> file_translate = null;
+				ArrayList<String> file_origin_content = f.Read();
+				while(file_origin_content != null) {
+					Parse parse = new Parse(file_origin_content, f.getName());
+					file_translate = parse.getContent();
+					f.Write(file_translate);
+					System.out.println("Finish file "+f.getName());
+					f.nextline();
+					file_origin_content = f.Read();
+				}
+			}
+		catch(FileException e) {
+			System.out.println(e.getMessage());
+		}
+		catch(ParseError e) {
+			System.out.println(e.getMessage());
+		}
+		
+	}
+	public static void main1(String[] args) {
+		try {
+			if(args.length != 2) {
+				throw new FileException("You need to input one and only one file or directory!");
+			}
+			else {
+				RW_File f = new RW_File(args[1]);
+				ArrayList<String> file_translate = null;
+				ArrayList<String> file_origin_content = f.Read();
+				while(file_origin_content != null) {
+					Parse parse = new Parse(file_origin_content, f.getName());
+					file_translate = parse.getContent();
+					f.Write(file_translate);
+					
+					f.nextline();
+					file_origin_content = f.Read();
+				}
+			}
+		}
+		catch(FileException e) {
+			System.out.println(e.getMessage());
+		}
+		catch(ParseError e) {
+			System.out.println(e.getMessage());
+		}
+	}
+}
